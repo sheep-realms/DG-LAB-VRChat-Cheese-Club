@@ -1,59 +1,67 @@
 # 芝士郊狼控制软件
 
-VRChat + DG-LAB 设备联动控制工具。通过监控 VRChat 日志和 OSC Avatar 参数，自动触发 DG-LAB 电击设备，并在 VRChat Chatbox 中实时显示状态。
+VRChat + DG-LAB 设备联动控制工具，属于**芝士郊狼台球后援会**（QQ群: 757992539）。
 
-## 功能
+## 功能一览
 
-- **DG-LAB 设备控制** - 通过 WebSocket 连接 DG-LAB APP，支持电击波形发送和强度控制
-- **VRChat 日志监控** - 实时读取 VRChat 日志，检测电击事件并自动触发
-- **Avatar OSC 参数** - 接收 VRChat Avatar OSC 参数，支持距离/电击/触感三种模式
-- **Chatbox 状态显示** - 实时在 VRChat 聊天框中显示当前模式和强度信息
-- **波形预览** - 动态波形预览，带播放动画和游标
-- **多主题** - 支持深色/浅色主题切换
-- **参数映射** - 可自定义电击秒数与强度的映射关系
-- **本地设置持久化** - 所有配置自动保存到 `settings.json`
+| 功能 | 说明 |
+|------|------|
+| DG-LAB 设备配对 | 扫码连接 DG-LAB APP，双通道独立控制 |
+| VRChat 日志监控 | 自动检测电击事件并触发设备 |
+| Avatar OSC 接收 | 距离/电击/触碰三种模式，实时响应 VRChat Avatar 参数 |
+| Chatbox 状态显示 | 头顶显示强度、剩余时间、波形名等，每行可独立开关 |
+| 波形预览 | 实时动画播放，滑动窗口展示波形数据 |
+| 时长累计 | 连续触发时电击时长自动叠加 |
+| 安全限制 | 1秒内累计电击不超过10秒 |
+| 双通道测试 | 一键测试电击，验证设备连接 |
+| 参数自定义 | 电击秒数-强度映射、波形模式、强度上限均可配置 |
+| 暗黑/明亮主题 | 一键切换 UI 主题 |
+| 设置持久化 | 所有配置自动保存到本地 |
 
 ## 截图
 
 ![界面预览](screenshot.png)
 
-## 快速开始
+## 使用方法
 
-### 安装依赖
+### 1. 下载
 
-```bash
-pip install -r requirements.txt
-```
+从 [Releases](https://github.com/cheesestudio/DG-LAB-VRChat-Cheese-Club/releases) 下载 `芝士郊狼控制软件.exe`，双击运行即可，无需安装。
 
-> 注意：需要 Python 3.10+，websockets 库请使用 12.0 版本（`pip install websockets==12.0`）
+### 2. 连接 DG-LAB APP
 
-### 启动
+1. 启动软件，界面自动生成二维码
+2. 打开手机上的 DG-LAB APP → 扫描二维码
+3. 配对成功后自动将强度设为上限
 
-```bash
-python main.py
-```
+### 3. 连接 VRChat
 
-### 连接 DG-LAB APP
-
-1. 启动软件后自动生成二维码
-2. 打开 DG-LAB APP → 扫描二维码
-3. 连接成功后自动将强度设为上限
-
-### 连接 VRChat
-
-1. 启动 VRChat
+1. 启动 VRChat（软件会自动监控日志）
 2. 软件自动启动 OSC 服务（Chatbox 端口 9000，Avatar 端口 9001）
-3. 在 OSC 面板中配置 Avatar 参数路径
+3. 进入 VRChat 后，电击事件会自动触发设备
 
-## 构建 EXE
+### 4. Chatbox 自定义
 
-```bash
-build.bat
+在第二列「Chatbox自定义」输入框中编辑显示内容，每行可通过复选框独立开关：
+
+```
+[芝士郊狼台球后援会]        ← 标题行
+A: 0 | B: 0                 ← 强度行
+剩余电击: 5秒                ← 剩余秒数（仅电击时显示）
+A:挑逗2 B:信号灯            ← 波形名
+我是Saob                   ← 自定义内容
+QQ:757992539 | v1.0        ← 固定显示
 ```
 
-构建完成后生成 `dist/芝士郊狼控制软件.exe`。
+### 5. 测试设备
 
-## 项目结构
+点击「测试电击 (3秒双通道满)」按钮，验证设备是否正常工作。
+
+---
+
+## 开发者
+
+### 项目结构
 
 ```
 ├── main.py              # 入口
@@ -76,7 +84,22 @@ build.bat
 └── build.bat            # 构建脚本
 ```
 
-## 依赖
+### 从源码运行
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+> 需要 Python 3.10+，websockets 库请使用 12.0 版本
+
+### 构建 EXE
+
+```bash
+build.bat
+```
+
+### 依赖
 
 | 库 | 用途 |
 |---|---|
@@ -84,12 +107,11 @@ build.bat
 | python-osc | VRChat OSC 收发 |
 | matplotlib | 波形预览 |
 | qrcode + Pillow | 二维码生成 |
-| customtkinter | GUI（未使用，保留兼容） |
 
-## 协议
+### 协议
 
 基于 [DG-LAB SOCKET v2 协议](https://github.com/DGLab-Project/DG-LAB-SOCKET-v2)，与 DG-LAB 官方 APP 兼容。
 
-## 许可
+### 许可
 
 MIT License
