@@ -100,6 +100,7 @@ class ConnectionPanel(tk.Frame):
             width=self.QR_SIZE, height=self.QR_SIZE,
             bg=t.get("bg_input", "#0a0a1a"),
             highlightthickness=1, highlightbackground=t.get("text_muted", "#666666"),
+            cursor="hand2",
         )
         self._qr_canvas.pack(pady=4)
         self._qr_canvas.create_text(
@@ -107,6 +108,12 @@ class ConnectionPanel(tk.Frame):
             text="启动服务后显示", fill=t.get("text_muted", "#666666"),
             font=("Microsoft YaHei UI", 9), tags="placeholder",
         )
+        self._qr_canvas.bind("<Button-1>", self._on_qr_click)
+
+        # Full-screen QR overlay (hidden by default)
+        self._qr_overlay = None
+        self._qr_enlarged = False
+        self._qr_full_image = None
 
         # Client ID
         self._id_label = tk.Label(
@@ -195,6 +202,7 @@ class ConnectionPanel(tk.Frame):
     def set_qr(self, url_or_image, client_id: str = ""):
         if hasattr(url_or_image, "size"):
             from PIL import ImageTk
+            self._qr_original = url_or_image
             img = url_or_image.resize((self.QR_SIZE, self.QR_SIZE))
             self._qr_image = ImageTk.PhotoImage(img)
             self._qr_canvas.delete("all")
@@ -220,6 +228,7 @@ class ConnectionPanel(tk.Frame):
                 qr.add_data(url_or_image)
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+                self._qr_original = img
 
                 # Save to PNG file like OMO
                 self._qr_path = os.path.join(
@@ -243,6 +252,65 @@ class ConnectionPanel(tk.Frame):
                 )
         if client_id:
             self._id_label.configure(text=f"ID: {client_id[:20]}")
+
+    def _on_qr_click(self, event=None):
+        if not self._qr_image:
+            return
+        if self._qr_enlarged:
+            self._shrink_qr()
+        else:
+            self._enlarge_qr()
+
+    def _enlarge_qr(self):
+        if self._qr_enlarged or not self._qr_image:
+            return
+        self._qr_enlarged = True
+        # Find the root window
+        root = self.winfo_toplevel()
+        root.update_idletasks()
+        w = root.winfo_width()
+        h = root.winfo_height()
+
+        self._qr_overlay = tk.Frame(root, bg="#000000")
+        self._qr_overlay.place(x=0, y=0, relwidth=1, relheight=1)
+        self._qr_overlay.bind("<Button-1>", lambda e: self._shrink_qr())
+
+        # Enlarge the QR image
+        size = min(w, h) - 80
+        from PIL import ImageTk
+        img = self._qr_image._original if hasattr(self._qr_image, '_original') else None
+        if img is None and self._qr_path and os.path.exists(self._qr_path):
+            from PIL import Image
+            img = Image.open(self._qr_path)
+        if img:
+            display = img.resize((size, size))
+            self._qr_full_image = ImageTk.PhotoImage(display)
+        else:
+            self._qr_full_image = self._qr_image
+
+        canvas = tk.Canvas(
+            self._qr_overlay, width=size, height=size,
+            bg="#000000", highlightthickness=0, cursor="hand2",
+        )
+        canvas.place(relx=0.5, rely=0.5, anchor="center")
+        canvas.create_image(size // 2, size // 2, image=self._qr_full_image, anchor="center")
+        canvas.bind("<Button-1>", lambda e: self._shrink_qr())
+
+        hint = tk.Label(
+            self._qr_overlay, text="点击任意位置关闭",
+            bg="#000000", fg="#888888",
+            font=("Microsoft YaHei UI", 12),
+        )
+        hint.place(relx=0.5, rely=0.9, anchor="center")
+
+    def _shrink_qr(self):
+        if not self._qr_enlarged:
+            return
+        self._qr_enlarged = False
+        if self._qr_overlay:
+            self._qr_overlay.destroy()
+            self._qr_overlay = None
+        self._qr_full_image = None
 
     def get_port(self) -> int:
         try:
