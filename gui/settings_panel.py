@@ -268,6 +268,7 @@ class SettingsPanel(tk.Frame):
         self._custom_text.insert("1.0", "我是Saob")
         self._custom_text.pack(fill="x", pady=(2, 0))
         self._custom_text.bind("<FocusOut>", lambda e: self._on_change())
+        self._custom_text.bind("<<Modified>>", self._on_text_modified)
 
         # Chatbox line toggles
         toggle_frame = tk.Frame(self, bg=t.get("bg_panel", "#1a1a2e"))
@@ -352,6 +353,10 @@ class SettingsPanel(tk.Frame):
 
     def _on_test_click(self):
         self._on_test_shock()
+
+    def _on_text_modified(self, event=None):
+        self._custom_text.edit_modified(False)
+        self._on_change()
 
     def get_a_limit(self) -> int:
         return self._a_limit_var.get()

@@ -100,7 +100,6 @@ class ConnectionPanel(tk.Frame):
             width=self.QR_SIZE, height=self.QR_SIZE,
             bg=t.get("bg_input", "#0a0a1a"),
             highlightthickness=1, highlightbackground=t.get("text_muted", "#666666"),
-            cursor="hand2",
         )
         self._qr_canvas.pack(pady=4)
         self._qr_canvas.create_text(
@@ -108,7 +107,16 @@ class ConnectionPanel(tk.Frame):
             text="启动服务后显示", fill=t.get("text_muted", "#666666"),
             font=("Microsoft YaHei UI", 9), tags="placeholder",
         )
-        self._qr_canvas.bind("<Button-1>", self._on_qr_click)
+
+        self._zoom_btn = tk.Button(
+            qr_frame, text="🔍 放大二维码",
+            bg=t.get("bg_button", "#0f3460"),
+            fg=t.get("text_primary", "#e0e0e0"),
+            activebackground=t.get("bg_button_hover", "#1a5276"),
+            font=("Microsoft YaHei UI", 8), relief="flat", cursor="hand2",
+            command=self._on_qr_click,
+        )
+        self._zoom_btn.pack(pady=(0, 4))
 
         # Full-screen QR overlay (hidden by default)
         self._qr_overlay = None
@@ -265,7 +273,6 @@ class ConnectionPanel(tk.Frame):
         if self._qr_enlarged or not self._qr_image:
             return
         self._qr_enlarged = True
-        # Find the root window
         root = self.winfo_toplevel()
         root.update_idletasks()
         w = root.winfo_width()
@@ -275,10 +282,10 @@ class ConnectionPanel(tk.Frame):
         self._qr_overlay.place(x=0, y=0, relwidth=1, relheight=1)
         self._qr_overlay.bind("<Button-1>", lambda e: self._shrink_qr())
 
-        # Enlarge the QR image
+        # Use saved original image
         size = min(w, h) - 80
         from PIL import ImageTk
-        img = self._qr_image._original if hasattr(self._qr_image, '_original') else None
+        img = getattr(self, '_qr_original', None)
         if img is None and self._qr_path and os.path.exists(self._qr_path):
             from PIL import Image
             img = Image.open(self._qr_path)
