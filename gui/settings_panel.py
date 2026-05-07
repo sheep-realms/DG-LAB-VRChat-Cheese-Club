@@ -325,11 +325,13 @@ class SettingsPanel(tk.Frame):
     def _on_a_limit_change(self, value):
         val = int(float(value))
         self._a_limit_label.configure(text=str(val))
+        self._a_label.configure(text=f"A: {val}")
         self._on_change()
 
     def _on_b_limit_change(self, value):
         val = int(float(value))
         self._b_limit_label.configure(text=str(val))
+        self._b_label.configure(text=f"B: {val}")
         self._on_change()
 
     def _on_mode_change(self):
