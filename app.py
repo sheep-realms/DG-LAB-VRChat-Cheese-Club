@@ -39,8 +39,8 @@ class App:
         self._log_to_console("软件已启动", "info")
         # Auto-connect everything
         self._window.after(500, self._auto_connect)
-        # Register chatbox toggle callback
-        self._window.osc_panel.set_on_chatbox_toggle(self._on_chatbox_toggle)
+        # Register chatbox enabled callback
+        self._window.settings_panel.set_on_chatbox_enabled(self._on_chatbox_enabled)
         # Start HTTP server for VRChat ShockingManager compatibility
         if self._http_server.start(self):
             self._log_to_console(f"HTTP 服务已启动 (端口:{self._settings.get('http_port', 9002)})", "info")
@@ -105,6 +105,14 @@ class App:
         if seconds <= 0:
             self._log_to_console(f"安全限制: 1秒内累计已超10秒，忽略本次电击", "warning")
             return
+        # 30-second total cap
+        if now < self._shock_end_time:
+            current_remaining = self._shock_end_time - now
+            if current_remaining + seconds > 30:
+                seconds = max(0, 30 - current_remaining)
+                if seconds <= 0:
+                    self._log_to_console("安全限制: 总时长已达30秒上限", "warning")
+                    return
         if now < self._shock_end_time:
             self._shock_remaining_a += seconds
             self._shock_remaining_b += seconds
@@ -126,8 +134,10 @@ class App:
         ))
 
         if self._ws_client and self._ws_client.is_paired:
-            self._ws_client.clear_waveform("A")
-            self._ws_client.clear_waveform("B")
+            # Only clear if no shock is currently playing
+            if now >= self._shock_end_time:
+                self._ws_client.clear_waveform("A")
+                self._ws_client.clear_waveform("B")
             # Set strength before waveform
             self._ws_client.force_strength(a_limit, b_limit)
             import time as _t
@@ -313,7 +323,7 @@ class App:
     def _send_chatbox(self, text: str):
         if not self._osc_client:
             return
-        if not self._window.osc_panel.get_chatbox_enabled():
+        if not self._window.settings_panel.get_chatbox_enabled():
             return
         try:
             self._osc_client.send_message("/chatbox/input", [text, True, False])
@@ -324,7 +334,7 @@ class App:
         import time as _time
         if not self._chatbox_running:
             return
-        if not self._window.osc_panel.get_chatbox_enabled():
+        if not self._window.settings_panel.get_chatbox_enabled():
             self._window.after(1000, self._send_chatbox_status)
             return
         if self._ws_client and self._ws_client.is_paired:
@@ -377,7 +387,7 @@ class App:
         if self._ws_client and self._ws_client.is_paired:
             self._ws_client.clear_waveform(channel)
 
-    def _on_chatbox_toggle(self, enabled: bool):
+    def _on_chatbox_enabled(self, enabled: bool):
         self._settings.set("chatbox_enabled", enabled)
         self._settings.save()
         state = "开启" if enabled else "关闭"
@@ -429,6 +439,13 @@ class App:
             self._shock_recent_events[-1] = (now, seconds)
         if seconds <= 0:
             return
+        # 30-second total cap
+        if now < self._shock_end_time:
+            current_remaining = self._shock_end_time - now
+            if current_remaining + seconds > 30:
+                seconds = max(0, 30 - current_remaining)
+                if seconds <= 0:
+                    return
         if now < self._shock_end_time:
             self._shock_remaining_a += seconds
             self._shock_remaining_b += seconds
@@ -442,6 +459,8 @@ class App:
         a_intensity = min(base_intensity, a_limit)
         b_intensity = min(base_intensity, b_limit)
 
+        # Only clear if no shock is currently playing
+        should_clear = now >= self._shock_end_time
         # Determine which channels to send
         if mode == 0:  # A only
             a_wave, _, a_name, _ = generate_ab_waveforms(
@@ -449,7 +468,8 @@ class App:
             )
             self._waveform_name_a = a_name
             self._waveform_name_b = ""
-            self._ws_client.clear_waveform("A")
+            if should_clear:
+                self._ws_client.clear_waveform("A")
             self._ws_client.send_waveform("A", a_wave, duration=seconds)
         elif mode == 1:  # B only
             b_wave, _, _, b_name = generate_ab_waveforms(
@@ -457,7 +477,8 @@ class App:
             )
             self._waveform_name_a = ""
             self._waveform_name_b = b_name
-            self._ws_client.clear_waveform("B")
+            if should_clear:
+                self._ws_client.clear_waveform("B")
             self._ws_client.send_waveform("B", b_wave, duration=seconds)
         else:  # AB both
             a_wave, b_wave, a_name, b_name = generate_ab_waveforms(
@@ -465,8 +486,9 @@ class App:
             )
             self._waveform_name_a = a_name
             self._waveform_name_b = b_name
-            self._ws_client.clear_waveform("A")
-            self._ws_client.clear_waveform("B")
+            if should_clear:
+                self._ws_client.clear_waveform("A")
+                self._ws_client.clear_waveform("B")
             self._ws_client.send_waveform("A", a_wave, duration=seconds)
             self._ws_client.send_waveform("B", b_wave, duration=seconds)
 
@@ -491,7 +513,7 @@ class App:
         self._window.osc_panel.set_avatar_port(s.get("avatar_osc_port", 9001))
         self._window.osc_panel.set_mode_a(s.get("avatar_channel_a_mode", "distance"))
         self._window.osc_panel.set_mode_b(s.get("avatar_channel_b_mode", "distance"))
-        self._window.osc_panel.set_chatbox_enabled(s.get("chatbox_enabled", True))
+        self._window.settings_panel.set_chatbox_enabled(s.get("chatbox_enabled", True))
         self._window.settings_panel.set_custom_chatbox(s.get("custom_chatbox", ""))
         self._window.settings_panel.set_chatbox_toggles(s.get("chatbox_toggles", {}))
         self._window.settings_panel.set_theme_button_text(self._current_theme_name)
@@ -508,7 +530,7 @@ class App:
         s.set("avatar_osc_port", self._window.osc_panel.get_avatar_port())
         s.set("avatar_channel_a_mode", self._window.osc_panel.get_mode_a())
         s.set("avatar_channel_b_mode", self._window.osc_panel.get_mode_b())
-        s.set("chatbox_enabled", self._window.osc_panel.get_chatbox_enabled())
+        s.set("chatbox_enabled", self._window.settings_panel.get_chatbox_enabled())
         s.set("custom_chatbox", self._window.settings_panel.get_custom_chatbox())
         s.set("chatbox_toggles", self._window.settings_panel.get_chatbox_toggles())
         s.set("seconds_mapping", self._window.mapping_panel.get_mapping())

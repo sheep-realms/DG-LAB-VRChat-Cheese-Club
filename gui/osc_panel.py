@@ -142,25 +142,6 @@ class OSCPanel(tk.Frame):
         )
         self._disconnect_btn.pack(side="left")
 
-        # Chatbox toggle
-        chatbox_frame = tk.Frame(self, bg=t.get("bg_panel", "#1a1a2e"))
-        chatbox_frame.pack(fill="x", padx=8, pady=2)
-
-        self._chatbox_var = tk.BooleanVar(value=True)
-        self._chatbox_check = tk.Checkbutton(
-            chatbox_frame, text="显示Chatbox",
-            variable=self._chatbox_var,
-            bg=t.get("bg_panel", "#1a1a2e"),
-            fg=t.get("text_primary", "#e0e0e0"),
-            selectcolor=t.get("bg_input", "#0a0a1a"),
-            activebackground=t.get("bg_panel", "#1a1a2e"),
-            activeforeground=t.get("text_primary", "#e0e0e0"),
-            font=("Microsoft YaHei UI", 9),
-            command=self._on_chatbox_toggle,
-        )
-        self._chatbox_check.pack(side="left")
-        self._on_chatbox_callback = None
-
         # Received parameter display
         param_frame = tk.Frame(self, bg=t.get("bg_panel", "#1a1a2e"))
         param_frame.pack(fill="x", padx=8, pady=(2, 6))
@@ -255,19 +236,6 @@ class OSCPanel(tk.Frame):
 
     def set_mode_b(self, mode: str):
         self._mode_b_var.set(mode)
-
-    def get_chatbox_enabled(self) -> bool:
-        return self._chatbox_var.get()
-
-    def set_chatbox_enabled(self, enabled: bool):
-        self._chatbox_var.set(enabled)
-
-    def set_on_chatbox_toggle(self, callback):
-        self._on_chatbox_callback = callback
-
-    def _on_chatbox_toggle(self):
-        if self._on_chatbox_callback:
-            self._on_chatbox_callback(self._chatbox_var.get())
 
     @property
     def is_connected(self) -> bool:
