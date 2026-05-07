@@ -324,11 +324,11 @@ class App:
             self._avatar_manager._running = True
             self._avatar_manager._start_bg_tasks()
 
-            self._osc_server = osc_server.ThreadingOSCUDPServer(
+            class ReusableOSCUDPServer(osc_server.ThreadingOSCUDPServer):
+                allow_reuse_address = True
+
+            self._osc_server = ReusableOSCUDPServer(
                 ("127.0.0.1", avatar_port), d
-            )
-            self._osc_server.socket.setsockopt(
-                __import__("socket").SOL_SOCKET, __import__("socket").SO_REUSEADDR, 1
             )
             threading.Thread(target=self._osc_server.serve_forever, daemon=True).start()
             self._log_to_console(f"Avatar OSC 已连接 (端口:{avatar_port})", "info")
