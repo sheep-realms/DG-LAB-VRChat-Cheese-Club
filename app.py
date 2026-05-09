@@ -652,21 +652,50 @@ class App:
         s.save()
 
     def on_close(self):
-        # Stop all services in order
-        self._chatbox_running = False
-        if self._http_server:
-            self._http_server.stop()
-            self._http_server = None
-        if self._log_monitor:
-            self._log_monitor.stop()
-            self._log_monitor = None
-        if self._ws_client:
-            self._ws_client.disconnect()
-            self._ws_client = None
-        self._stop_osc()
-        self._save_settings_from_ui()
-        # Destroy window asynchronously to avoid blocking on background threads
-        if self._window:
-            root = self._window._root
-            self._window = None
-            root.after(100, root.destroy)
+        import logging
+        log = logging.getLogger(__name__)
+        try:
+            log.info("on_close start")
+            self._chatbox_running = False
+            if self._http_server:
+                self._http_server.stop()
+                self._http_server = None
+                log.info("http stopped")
+
+            if self._log_monitor:
+                self._log_monitor.stop()
+                self._log_monitor = None
+                log.info("log_monitor stopped")
+
+            if self._ws_client:
+                self._ws_client.disconnect()
+                self._ws_client = None
+                log.info("ws stopped")
+
+            if self._osc_server:
+                try:
+                    self._osc_server.shutdown()
+                except Exception:
+                    pass
+                try:
+                    self._osc_server.server_close()
+                except Exception:
+                    pass
+                self._osc_server = None
+                log.info("osc_server stopped")
+
+            if self._avatar_manager:
+                self._avatar_manager.stop()
+                self._avatar_manager = None
+                log.info("avatar stopped")
+
+            self._save_settings_from_ui()
+            log.info("settings saved")
+
+            if self._window:
+                root = self._window._root
+                self._window = None
+                root.after(50, root.destroy)
+                log.info("window destroyed")
+        except Exception as e:
+            log.error(f"on_close error: {e}")
