@@ -460,21 +460,13 @@ class App:
             # Line 3: Remaining time (only when active)
             if toggles.get("line3", True) and remaining > 0:
                 lines.append(f"剩余电击: {remaining}秒")
-            # Line 4: Waveform names (active shock names or current selection)
-            if toggles.get("line4", True):
+            # Line 4: Waveform names (only during active shock)
+            if toggles.get("line4", True) and remaining > 0:
                 name_parts = []
                 if self._waveform_name_a:
                     name_parts.append(f"A:{self._waveform_name_a}")
-                elif self._waveform_name_b:
+                if self._waveform_name_b and self._waveform_name_b != self._waveform_name_a:
                     name_parts.append(f"B:{self._waveform_name_b}")
-                else:
-                    wf_mode = self._window.settings_panel.get_waveform_mode()
-                    if wf_mode == "custom":
-                        cw = self._window.settings_panel.get_custom_waveform()
-                        if cw:
-                            name_parts.append(f"波形:{cw}")
-                    else:
-                        name_parts.append("波形:随机")
                 if name_parts:
                     lines.append(" ".join(name_parts))
             # Line 5: Custom
