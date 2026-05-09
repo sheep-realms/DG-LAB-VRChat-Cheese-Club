@@ -714,6 +714,12 @@ class App:
                 self._avatar_manager = None
                 log.info("avatar stopped")
 
+            if self._window:
+                self._window.waveform_panel.stop()
+                log.info("waveform stopped")
+
+            self._waveform_feeder_running = False
+
             self._save_settings_from_ui()
             log.info("settings saved")
 
