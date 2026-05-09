@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """芝士郊狼控制软件 - Cheese DGLAB Controller"""
 
+import os
 import sys
+
+# Force matplotlib to use TkAgg backend before any matplotlib import
+os.environ["MPLBACKEND"] = "TkAgg"
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 import logging
 
 logging.basicConfig(

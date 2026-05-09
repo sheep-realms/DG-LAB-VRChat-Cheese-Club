@@ -123,19 +123,40 @@ class TouchMode:
     def _compute_derivative(self):
         if len(self.dist_arr) < 4:
             return 0, 0, 0, 0
-        try:
-            import numpy as np
-        except ImportError:
+        data = list(self.dist_arr)
+        times = [p[0] for p in data]
+        distances = [p[1] for p in data]
+
+        # Moving average (3-point)
+        n = 3
+        smoothed = []
+        for i in range(len(distances) - n + 1):
+            smoothed.append(sum(distances[i:i + n]) / n)
+        times = times[:len(smoothed)]
+
+        if len(smoothed) < 2:
             return 0, 0, 0, 0
-        time_ = np.array([p[0] for p in self.dist_arr])
-        distance = np.array([p[1] for p in self.dist_arr])
-        window_size = 3
-        distance = np.convolve(distance, np.ones(window_size) / window_size, mode="valid")
-        time_ = time_[: len(distance)]
-        velocity = np.gradient(distance, time_)
-        acceleration = np.gradient(velocity, time_)
-        jerk = np.gradient(acceleration, time_)
-        return float(distance[-1]), float(velocity[-1]), float(acceleration[-1]), float(jerk[-1])
+
+        # Gradient: simple central difference
+        def gradient(values, xs):
+            result = []
+            for i in range(1, len(values) - 1):
+                dx = xs[i + 1] - xs[i - 1]
+                if abs(dx) > 1e-9:
+                    result.append((values[i + 1] - values[i - 1]) / dx)
+                else:
+                    result.append(0.0)
+            return result
+
+        velocity = gradient(smoothed, times)
+        acceleration = gradient(velocity, times[:len(velocity)])
+        jerk = gradient(acceleration, times[:len(velocity) - 1])
+
+        last_idx = len(smoothed) - 1
+        v_last = velocity[-1] if len(velocity) > 1 else 0.0
+        a_last = acceleration[-1] if len(acceleration) > 1 else 0.0
+        j_last = jerk[-1] if jerk else 0.0
+        return float(smoothed[last_idx]), float(v_last), float(a_last), float(j_last)
 
     def get_wave(self) -> Optional[str]:
         deriv = self._compute_derivative()

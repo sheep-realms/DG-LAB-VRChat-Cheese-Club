@@ -229,6 +229,8 @@ build.bat
 | matplotlib | 波形预览 |
 | qrcode + Pillow | 二维码生成 |
 
+> 注意：仅用于 Avatar 的 touch 模式数学计算（求导/加速度），不需要 CUDA/FFT 等扩展功能。
+
 ### 协议与参考
 
 - [DG-LAB SOCKET v2 协议](https://github.com/DGLab-Project/DG-LAB-SOCKET-v2) — 与 DG-LAB 官方 APP 兼容
