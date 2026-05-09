@@ -292,8 +292,6 @@ targets:
 4. 将 面捕软件 端口改为 `9020`
 4. 按顺序启动：osc-repeater → 本软件 → VRChat
 
-> 需要 VRChat 支持多端口 OSC 接收（`Action Menu → Osc` 中添加额外端口 9020）。如果 VRChat 只支持单端口 9000，请考虑关闭本软件 Chatbox 功能。
-
 ### Chatbox 不显示状态
 
 | 原因 | 排查方法 | 解决方案 |
