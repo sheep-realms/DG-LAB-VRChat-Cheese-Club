@@ -26,7 +26,8 @@ class App:
         self._shock_remaining_a = 0
         self._shock_remaining_b = 0
         self._shock_end_time = 0
-        self._shock_recent_events = []  # [(timestamp, seconds), ...] for 1s window safety
+        self._shock_recent_events_log = []   # 日志触发的 1s 窗口安全限制
+        self._shock_recent_events_http = []  # HTTP 触发的 1s 窗口安全限制
         self._waveform_name_a = ""
         self._waveform_name_b = ""
         self._waveform_feeder_running = False
@@ -35,7 +36,7 @@ class App:
         self._stats_b_seconds = 0
         self._stats_a_intensity_time = 0.0
         self._stats_b_intensity_time = 0.0
-        self._http_server = HttpServer(port=self._settings.get("http_port", 9002))
+        self._http_server = HttpServer(port=self._settings.get("http_port", 8800))
 
     def run(self):
         theme = get_theme(self._current_theme_name)
@@ -49,7 +50,7 @@ class App:
         self._window.settings_panel.set_on_chatbox_enabled(self._on_chatbox_enabled)
         # Start HTTP server for VRChat ShockingManager compatibility
         if self._http_server.start(self):
-            self._log_to_console(f"HTTP 服务已启动 (端口:{self._settings.get('http_port', 9002)})", "info")
+            self._log_to_console(f"HTTP 服务已启动 (端口:{self._settings.get('http_port', 8800)})", "info")
         self._window.run()
 
     @staticmethod
@@ -97,7 +98,7 @@ class App:
         import time as _time
         mode = event.get("mode", "instant")
         seconds = event.get("seconds", 3)
-        hand = event.get("hand", "A")
+        _ = event.get("hand", "A")  # reserved for future single-channel support
 
         mapping = self._settings.get("seconds_mapping", {})
         base_intensity = mapping.get(str(seconds), seconds * 20)
@@ -111,11 +112,9 @@ class App:
 
         # Accumulate remaining time with 1s/10s safety limit
         now = _time.time()
-        self._shock_recent_events.append((now, seconds))
-        # Remove events older than 1 second
-        self._shock_recent_events = [(t, s) for t, s in self._shock_recent_events if now - t <= 1.0]
-        # Sum of durations in the last 1 second
-        recent_sum = sum(s for _, s in self._shock_recent_events)
+        self._shock_recent_events_log.append((now, seconds))
+        self._shock_recent_events_log = [(t, s) for t, s in self._shock_recent_events_log if now - t <= 1.0]
+        recent_sum = sum(s for _, s in self._shock_recent_events_log)
         if recent_sum > 10:
             # Clamp: only allow what fits within the 10s limit
             allowed = max(0, 10 - (recent_sum - seconds))
@@ -152,8 +151,9 @@ class App:
 
         a_display = waveform_to_display_data(a_wave)
         b_display = waveform_to_display_data(b_wave)
-        self._window.after(0, lambda: self._window.waveform_panel.update_waveform(
-            a_display, b_display, seconds, a_intensity, b_intensity, ui_mode, a_name, b_name,
+        panel = self._window.waveform_panel
+        self._window.after(0, lambda ad=a_display, bd=b_display, s=seconds, ai=a_intensity, bi=b_intensity, m=ui_mode, an=a_name, bn=b_name, pan=panel: pan.update_waveform(
+            ad, bd, s, ai, bi, m, an, bn,
         ))
 
         if self._ws_client and self._ws_client.is_paired:
@@ -161,13 +161,10 @@ class App:
             if now >= self._shock_end_time:
                 self._ws_client.clear_waveform("A")
                 self._ws_client.clear_waveform("B")
-            # Set strength before waveform
+            # Set strength before waveform (use after to avoid blocking main thread)
             self._ws_client.force_strength(a_limit, b_limit)
-            import time as _t
-            _t.sleep(0.3)
-            self._ws_client.send_waveform("A", a_wave, duration=seconds)
-            _t.sleep(0.1)
-            self._ws_client.send_waveform("B", b_wave, duration=seconds)
+            self._window.after(300, lambda: self._ws_client.send_waveform("A", a_wave, duration=seconds))
+            self._window.after(400, lambda: self._ws_client.send_waveform("B", b_wave, duration=seconds))
             self._log_to_console(
                 f"电击: {seconds}秒 | A:{a_intensity}({a_name}) B:{b_intensity}({b_name}) | "
                 f"{'一键开火' if ui_mode == 'instant' else '温柔加力'}",
@@ -196,26 +193,27 @@ class App:
     def _waveform_feeder(self):
         import time as _time
         now = _time.time()
-        if now >= self._shock_end_time or not self._ws_client or not self._ws_client.is_paired:
+        remaining = self._shock_end_time - now
+        if remaining <= 0 or not self._ws_client or not self._ws_client.is_paired:
             self._waveform_feeder_running = False
             return
+        chunk_sec = max(1, int(remaining))  # Send in 1-second chunks, minimum 1
+        chunk_sec = min(chunk_sec, 1)         # Cap at 1 second per chunk
         ui_mode = self._window.settings_panel.get_mode()
         wf_mode = self._window.settings_panel.get_waveform_mode()
         a_limit = self._window.settings_panel.get_a_limit()
         b_limit = self._window.settings_panel.get_b_limit()
         custom_wf = self._window.settings_panel.get_custom_waveform() if wf_mode == "custom" else ""
-        # Send 1-second chunks
-        chunk_sec = min(1, int(self._shock_end_time - now) + 1)
         a_wave, b_wave, _, _ = generate_ab_waveforms(
             chunk_sec, a_limit, b_limit, ui_mode, wf_mode, alternate=True,
             custom_waveform=custom_wf,
         )
         self._ws_client.send_waveform("A", a_wave, duration=chunk_sec)
         self._ws_client.send_waveform("B", b_wave, duration=chunk_sec)
-        self._window.after(0, lambda: self._window.settings_panel.update_stats(
-            self._stats_a_seconds, self._stats_b_seconds,
-            self._stats_a_intensity_time, self._stats_b_intensity_time,
-        ))
+        panel = self._window.settings_panel
+        stats = (self._stats_a_seconds, self._stats_b_seconds,
+                 self._stats_a_intensity_time, self._stats_b_intensity_time)
+        self._window.after(0, lambda p=panel, s=stats: p.update_stats(*s))
         self._window.after(1000, self._waveform_feeder)
 
     def get_stats(self) -> dict:
@@ -354,10 +352,16 @@ class App:
             b_config = self._settings.get("avatar_channel_b_config", {})
             self._avatar_manager.configure(a_params, mode_a, a_config, b_params, mode_b, b_config)
 
+            # 去重：同一地址只绑定一次，先绑定的通道优先
+            bound_paths = set()
             for path in a_params:
-                d.map(path, self._avatar_manager._channels["A"].on_osc)
+                if path not in bound_paths:
+                    d.map(path, self._avatar_manager._channels["A"].on_osc)
+                    bound_paths.add(path)
             for path in b_params:
-                d.map(path, self._avatar_manager._channels["B"].on_osc)
+                if path not in bound_paths:
+                    d.map(path, self._avatar_manager._channels["B"].on_osc)
+                    bound_paths.add(path)
 
             self._avatar_manager._running = True
             self._avatar_manager._start_bg_tasks()
@@ -384,6 +388,8 @@ class App:
 
     def _stop_osc(self):
         self._chatbox_running = False
+        if self._osc_client:
+            self._osc_client = None
         if self._osc_server:
             try:
                 self._osc_server.shutdown()
@@ -394,7 +400,6 @@ class App:
             except Exception:
                 pass
             self._osc_server = None
-            self._osc_client = None
         self._stop_avatar()
         self._log_to_console("VRChat OSC 已断开", "info")
 
@@ -460,7 +465,8 @@ class App:
         """Default handler for unmatched OSC messages - display in params."""
         if self._window:
             params = {address: args[0] if len(args) == 1 else args}
-            self._window.after(0, lambda p=params: self._window.osc_panel.update_params(p))
+            panel = self._window.osc_panel
+            self._window.after(0, lambda p=params, pan=panel: pan.update_params(p))
 
     def _on_avatar_wave(self, channel: str, wave_hex):
         if self._ws_client and self._ws_client.is_paired:
@@ -518,9 +524,9 @@ class App:
         # Accumulate remaining time
         import time as _time
         now = _time.time()
-        self._shock_recent_events.append((now, seconds))
-        self._shock_recent_events = [(t, s) for t, s in self._shock_recent_events if now - t <= 1.0]
-        recent_sum = sum(s for _, s in self._shock_recent_events)
+        self._shock_recent_events_http.append((now, seconds))
+        self._shock_recent_events_http = [(t, s) for t, s in self._shock_recent_events_http if now - t <= 1.0]
+        recent_sum = sum(s for _, s in self._shock_recent_events_http)
         if recent_sum > 10:
             allowed = max(0, 10 - (recent_sum - seconds))
             seconds = allowed
@@ -548,6 +554,8 @@ class App:
         base_intensity = mapping.get(str(seconds), seconds * 20)
         a_intensity = min(base_intensity, a_limit)
         b_intensity = min(base_intensity, b_limit)
+
+        self._ws_client.force_strength(a_limit, b_limit)
 
         # Only clear if no shock is currently playing
         should_clear = now >= self._shock_end_time
@@ -586,7 +594,6 @@ class App:
             self._ws_client.send_waveform("A", a_wave, duration=seconds)
             self._ws_client.send_waveform("B", b_wave, duration=seconds)
 
-        self._ws_client.force_strength(a_limit, b_limit)
         # Track stats
         if mode == 0:
             self._stats_a_seconds += seconds

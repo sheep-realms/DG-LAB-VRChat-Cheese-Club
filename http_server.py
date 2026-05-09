@@ -9,6 +9,12 @@ from urllib.parse import urlparse, parse_qs
 logger = logging.getLogger(__name__)
 
 
+def _check_vrchat_origin(handler) -> bool:
+    """Check if request comes from VRChat via UnityPlayer user-agent."""
+    ua = handler.headers.get("User-Agent", "")
+    return "UnityPlayer" in ua
+
+
 class ShockHandler(BaseHTTPRequestHandler):
     """Handles HTTP requests from VRChat ShockingManager."""
 
@@ -17,35 +23,39 @@ class ShockHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         logger.debug(f"HTTP {args[0]}")
 
+    def _send_json(self, data: dict, code: int = 200):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
+        # Auth check: only allow requests from VRChat UnityPlayer
+        if not _check_vrchat_origin(self):
+            self._send_json({"status": "error", "message": "origin not allowed"}, 403)
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
         params = parse_qs(parsed.query)
 
-        # /api/v1/status — status check (compatible with Shocking-VRChat)
         if path == "/api/v1/status":
             self._handle_status()
-        # /api/v1/shock/<channel>/<second> — shock trigger
-        # channel: "A", "B", or "all"; second: 1-10 float
         elif path.startswith("/api/v1/shock/"):
             parts = path.split("/")
             if len(parts) >= 6:
-                channel = parts[4]
-                second = parts[5]
-                self._handle_shock(channel, second)
+                self._handle_shock(parts[4], parts[5])
             else:
                 self._send_json({"status": "error"}, 400)
-        # /api/v1/sendwave/<channel>/<repeat>/<wavedata>
         elif path.startswith("/api/v1/sendwave/"):
             parts = path.split("/")
             if len(parts) >= 7:
-                channel = parts[4]
-                repeat = parts[5]
-                wavedata = parts[6]
-                self._handle_sendwave(channel, repeat, wavedata)
+                self._handle_sendwave(parts[4], parts[5], parts[6])
             else:
                 self._send_json({"status": "error"}, 400)
-        # Fallback: any path with ?ret=status returns status
         elif params.get("ret") == ["status"]:
             self._handle_status()
         else:
@@ -54,10 +64,10 @@ class ShockHandler(BaseHTTPRequestHandler):
     def _handle_status(self):
         app = self.app
         if not app or not app._ws_client or not app._ws_client.is_paired:
-            data = {"healthy": "ok", "devices": []}
+            self._send_json({"healthy": "ok", "devices": []})
         else:
             strength = app._ws_client._strength
-            data = {
+            self._send_json({
                 "healthy": "ok",
                 "devices": [{
                     "type": "shock",
@@ -70,8 +80,7 @@ class ShockHandler(BaseHTTPRequestHandler):
                         "uuid": app._ws_client.client_id or "",
                     },
                 }],
-            }
-        self._send_json(data)
+            })
 
     def _handle_shock(self, channel: str, second_str: str):
         app = self.app
@@ -85,15 +94,9 @@ class ShockHandler(BaseHTTPRequestHandler):
         if seconds < 1:
             seconds = 1.0
         seconds = int(seconds)
-        # Map channel: "A"->0, "B"->1, "all"->2
-        if channel.lower() == "all":
-            mode = 2
-        elif channel.upper() == "A":
-            mode = 0
-        elif channel.upper() == "B":
-            mode = 1
-        else:
-            mode = 2
+        # Map channel: A->0, B->1, all->2
+        channel_map = {"a": 0, "b": 1}
+        mode = channel_map.get(channel.lower(), 2) if channel.lower() not in ("all",) else 2
         app.on_http_shock(mode, seconds)
         self._send_json({"status": "ok"})
 
@@ -103,23 +106,13 @@ class ShockHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "error", "message": "not connected"})
             return
         try:
-            repeat = int(repeat_str)
+            repeat = max(1, min(int(repeat_str), 100))
         except ValueError:
             repeat = 1
         ch = channel.upper() if channel.upper() in ("A", "B") else "A"
-        # Build wave list: repeat the wavedata entry
         wave_list = [wavedata] * repeat
         app._ws_client.send_waveform(ch, wave_list, duration=max(repeat // 10, 1))
         self._send_json({"status": "ok"})
-
-    def _send_json(self, data: dict, code: int = 200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
 
 
 class ReusableHTTPServer(HTTPServer):
@@ -133,7 +126,7 @@ class ReusableHTTPServer(HTTPServer):
 class HttpServer:
     """Runs the HTTP server in a background thread."""
 
-    def __init__(self, port: int = 9002):
+    def __init__(self, port: int = 8800):
         self._port = port
         self._server = None
         self._thread = None

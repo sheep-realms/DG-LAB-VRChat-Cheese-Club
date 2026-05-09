@@ -71,12 +71,17 @@ class ShockMode:
         )
         self.trigger_bottom = config.get("trigger_range", {}).get("bottom", 0.0)
         self.trigger_top = config.get("trigger_range", {}).get("top", 1.0)
-        self._last_trigger = 0.0
+        self._last_trigger_time = 0.0
+        self._last_value = 0.0
 
-    def on_value(self, value: float) -> Optional[float]:
+    def on_value(self, value: float) -> None:
+        self._last_value = value
+
+    def check_and_trigger(self) -> Optional[float]:
+        """Check if threshold crossed and return duration, or None."""
         now = time.time()
-        if value > self.trigger_bottom and now > self._last_trigger:
-            self._last_trigger = now + self.duration
+        if self._last_value > self.trigger_bottom and now > self._last_trigger_time:
+            self._last_trigger_time = now + self.duration
             return self.duration
         return None
 
@@ -165,6 +170,7 @@ class AvatarChannelHandler:
         self.mode = mode
         self._cleared = True
         self._clear_time = 0.0
+        self._pending_shock_duration: Optional[float] = None
 
         if mode == "distance":
             self._handler_impl = DistanceMode(config)
@@ -200,6 +206,7 @@ class AvatarChannelHandler:
         """Returns True if channel should be cleared."""
         if not self._cleared and time.time() > self._clear_time:
             self._cleared = True
+            self._clear_time = 0.0
             return True
         return False
 
@@ -209,12 +216,14 @@ class AvatarChannelHandler:
             return self._handler_impl.get_wave()
         return None
 
-    def trigger_shock(self) -> Optional[float]:
-        """For shock mode, returns duration if triggered."""
-        if self.mode == "shock" and hasattr(self._handler_impl, "on_value"):
-            # Re-check last value
+    def pop_shock_duration(self) -> Optional[float]:
+        """For shock mode: pop and return pending shock duration if triggered, else None."""
+        if self.mode != "shock":
             return None
-        return None
+        duration = self._handler_impl.check_and_trigger()
+        if duration is not None:
+            logger.info(f"[Avatar] CH{self.channel} shock triggered for {duration}s")
+        return duration
 
     @property
     def is_shock(self) -> bool:
@@ -234,7 +243,6 @@ class AvatarManager:
         self._channels = {}  # 'A' or 'B' -> AvatarChannelHandler
         self._osc_server = None
         self._osc_thread = None
-        self._bg_tasks = []
         self._running = False
         self._bg_loop = None
 
@@ -267,6 +275,7 @@ class AvatarManager:
                 if handler and handler.mode in ("distance", "touch"):
                     asyncio.ensure_future(self._wave_feeder(ch))
             asyncio.ensure_future(self._clear_checker())
+            asyncio.ensure_future(self._shock_checker())
         else:
             # Run in a separate thread with its own event loop
             def _run():
@@ -278,6 +287,7 @@ class AvatarManager:
                     if handler and handler.mode in ("distance", "touch"):
                         new_loop.create_task(self._wave_feeder(ch))
                 new_loop.create_task(self._clear_checker())
+                new_loop.create_task(self._shock_checker())
                 new_loop.run_forever()
 
             t = threading.Thread(target=_run, daemon=True)
@@ -307,6 +317,19 @@ class AvatarManager:
                     self._on_clear(ch)
                     logger.info(f"Channel {ch} cleared after timeout")
 
+    async def _shock_checker(self):
+        """Background task that checks for shock mode triggers."""
+        while self._running:
+            await asyncio.sleep(0.05)
+            for ch in ["A", "B"]:
+                handler = self._channels.get(ch)
+                if handler and handler.is_shock:
+                    duration = handler.pop_shock_duration()
+                    if duration is not None:
+                        wave = handler._handler_impl.wave_data
+                        logger.info(f"[Avatar] CH{ch} sending shock wave, duration={duration}s")
+                        self._on_wave(ch, wave)
+
     def stop(self):
         """Stop OSC listening and background tasks."""
         self._running = False
@@ -327,5 +350,5 @@ class AvatarManager:
     def send_shock(self, channel: str, duration: float = 2.0, wave_data: str = None):
         """Manually trigger a shock on a channel."""
         if wave_data is None:
-            wave_data = '["0A0A0A0A64646464"] * 10'
+            wave_data = '["0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464","0A0A0A0A64646464"]'
         self._on_wave(channel, wave_data)

@@ -112,7 +112,21 @@ class Settings:
         return self._data.get(key, default)
 
     def set(self, key: str, value):
+        # Input validation for known numeric keys
+        if key in ("port", "osc_port", "avatar_osc_port", "http_port", "poll_interval", "idle_check_interval"):
+            value = self._clamp_int(value, 1, 65535)
+        elif key in ("a_limit", "b_limit"):
+            value = self._clamp_int(value, 0, 200)
+        elif key == "chatbox_send_interval":
+            value = self._clamp_int(value, 1, 60)
         self._data[key] = value
+
+    @staticmethod
+    def _clamp_int(value, min_val: int, max_val: int) -> int:
+        try:
+            return max(min_val, min(max_val, int(value)))
+        except (ValueError, TypeError):
+            return min_val
 
     @property
     def data(self) -> dict:
