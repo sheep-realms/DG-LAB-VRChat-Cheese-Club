@@ -7,13 +7,11 @@ def _clamp(value: int, min_val: int = 0, max_val: int = 200) -> int:
     return max(min_val, min(max_val, value))
 
 
-def _build_hex_byte_pair(freq: int, intensity: int) -> str:
-    return f"{_clamp(freq, 0, 255):02X}{_clamp(intensity, 0, 255):02X}"
-
-
 def _make_entry(freq: int, intensity: int) -> str:
-    pair = _build_hex_byte_pair(freq, intensity)
-    return pair * 4
+    """Generate FFFFIIII format: 4 freq bytes then 4 intensity bytes."""
+    f = _clamp(freq, 0, 255)
+    i = _clamp(intensity, 0, 200)
+    return f"{f:02X}{f:02X}{f:02X}{f:02X}{i:02X}{i:02X}{i:02X}{i:02X}"
 
 
 def generate_one_shot(seconds: int, intensity: int) -> list[str]:
@@ -61,19 +59,82 @@ def generate_waveform(seconds: int, intensity: int, mode: str = "instant",
 
 
 def waveform_to_display_data(entries: list[str]) -> list[int]:
+    """Decode FFFFIIII entries into average intensity per entry."""
     result = []
     for entry in entries:
         intensities = []
         for j in range(4):
-            pair_start = j * 4
-            if pair_start + 4 <= len(entry):
-                intensity_hex = entry[pair_start + 2:pair_start + 4]
+            pos = 8 + j * 2
+            if pos + 2 <= len(entry):
                 try:
-                    intensities.append(int(intensity_hex, 16))
+                    intensities.append(int(entry[pos:pos + 2], 16))
                 except ValueError:
                     intensities.append(0)
         result.append(sum(intensities) // max(len(intensities), 1))
     return result
+
+
+def generate_smooth_feeder_waveform(intensity: int, count: int = 10) -> list[str]:
+    """Generate a smooth, continuous waveform chunk for the feeder.
+    Uses sine-wave and gradual patterns — no zero-intensity gaps."""
+    intensity = _clamp(intensity)
+    if intensity == 0:
+        return [_make_entry(0x0A, 0)] * count
+
+    # Pick from several smooth patterns that feel different
+    pattern_type = random.choice(["sine", "ramp_up", "ramp_down", "triangle", "gentle_pulse"])
+
+    if pattern_type == "sine":
+        # Smooth sine wave, never drops to zero
+        entries = []
+        for i in range(count):
+            t = i / max(count, 1)
+            val = int(intensity * (0.5 + 0.5 * math.sin(2 * math.pi * t - math.pi / 2)))
+            val = max(1, min(intensity, val))
+            entries.append(_make_entry(0x0A, val))
+        return entries
+
+    elif pattern_type == "ramp_up":
+        # Gradual ramp from 30% to full
+        entries = []
+        for i in range(count):
+            t = i / max(count - 1, 1)
+            base = int(intensity * 0.3)
+            val = int(base + (intensity - base) * t)
+            val = max(1, min(intensity, val))
+            entries.append(_make_entry(0x0A, val))
+        return entries
+
+    elif pattern_type == "ramp_down":
+        # Gradual ramp down from full to 30%
+        entries = []
+        for i in range(count):
+            t = i / max(count - 1, 1)
+            base = int(intensity * 0.3)
+            val = int(intensity - (intensity - base) * t)
+            val = max(1, min(intensity, val))
+            entries.append(_make_entry(0x0A, val))
+        return entries
+
+    elif pattern_type == "triangle":
+        # Triangle wave: ramp up then down
+        entries = []
+        for i in range(count):
+            t = i / max(count, 1)
+            val = int(intensity * (1 - abs(2 * t - 1)))
+            val = max(1, min(intensity, val))
+            entries.append(_make_entry(0x0A, val))
+        return entries
+
+    else:  # gentle_pulse
+        # Gentle pulsing — oscillates between 50% and 100%
+        entries = []
+        for i in range(count):
+            t = i / max(count, 1)
+            val = int(intensity * (0.5 + 0.5 * math.sin(2 * math.pi * t)))
+            val = max(1, min(intensity, val))
+            entries.append(_make_entry(0x0A, val))
+        return entries
 
 
 def generate_ab_waveforms(seconds: int, a_intensity: int, b_intensity: int,

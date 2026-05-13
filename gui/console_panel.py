@@ -1,3 +1,4 @@
+from gui.fonts import UI_XS, UI_S, UI_S_B, UI_M, UI_M_B, MONO_S
 import tkinter as tk
 from datetime import datetime
 
@@ -5,95 +6,119 @@ from datetime import datetime
 class ConsolePanel(tk.Frame):
     def __init__(self, master, theme: dict = None, **kwargs):
         self._theme = theme or {}
-        super().__init__(master, bg=self._theme.get("bg_panel", "#1a1a2e"), **kwargs)
+        super().__init__(master, bg=self._theme.get("bg_panel", "#111827"), **kwargs)
         self._max_lines = 300
         self._build()
 
     def _build(self):
         t = self._theme
 
-        header = tk.Frame(self, bg=t.get("bg_header", "#16213e"))
-        header.pack(fill="x", padx=2, pady=(2, 0))
+        # Container with border
+        container = tk.Frame(self, bg=t.get("bg_card", "#151d2b"),
+                            highlightbackground=t.get("border_color", "#1e293b"),
+                            highlightthickness=1)
+        container.pack(fill="both", expand=True, padx=4, pady=4)
+
+        # Header
+        header = tk.Frame(container, bg=t.get("bg_card", "#151d2b"))
+        header.pack(fill="x", padx=12, pady=(12, 8))
+
         tk.Label(
-            header, text="📋 日志", bg=t.get("bg_header", "#16213e"),
-            fg=t.get("text_primary", "#e0e0e0"),
-            font=("Microsoft YaHei UI", 10, "bold"), anchor="w",
-        ).pack(side="left", padx=8, pady=2)
+            header, text="日志",
+            bg=t.get("bg_card", "#151d2b"),
+            fg=t.get("text_primary", "#f1f5f9"),
+            font=(UI_M_B), anchor="w",
+        ).pack(side="left")
+
+        # Action buttons
+        btn_frame = tk.Frame(header, bg=t.get("bg_card", "#151d2b"))
+        btn_frame.pack(side="right")
 
         self._show_debug = False
         self._debug_btn = tk.Button(
-            header, text="Debug", bg=t.get("bg_button", "#0f3460"),
-            fg=t.get("text_muted", "#666666"),
-            activebackground=t.get("bg_button_hover", "#1a5276"),
-            activeforeground=t.get("text_primary", "#ffffff"),
-            font=("Microsoft YaHei UI", 9), relief="flat", cursor="hand2",
+            btn_frame, text="Debug",
+            bg=t.get("bg_input", "#0f1520"),
+            fg=t.get("text_muted", "#475569"),
+            activebackground=t.get("border_color", "#1e293b"),
+            activeforeground=t.get("text_primary", "#f1f5f9"),
+            font=(UI_XS), relief="flat", cursor="hand2",
             command=self._toggle_debug,
         )
-        self._debug_btn.pack(side="right", padx=(0, 4), pady=2)
+        self._debug_btn.pack(side="left", padx=(0, 4))
 
         self._clear_btn = tk.Button(
-            header, text="清空", bg=t.get("bg_button", "#0f3460"),
-            fg=t.get("text_primary", "#e0e0e0"),
-            activebackground=t.get("bg_button_hover", "#1a5276"),
-            activeforeground=t.get("text_primary", "#ffffff"),
-            font=("Microsoft YaHei UI", 9), relief="flat", cursor="hand2",
+            btn_frame, text="清空",
+            bg=t.get("bg_input", "#0f1520"),
+            fg=t.get("text_secondary", "#94a3b8"),
+            activebackground=t.get("border_color", "#1e293b"),
+            activeforeground=t.get("text_primary", "#f1f5f9"),
+            font=(UI_XS), relief="flat", cursor="hand2",
             command=self._clear,
         )
-        self._clear_btn.pack(side="right", padx=8, pady=2)
+        self._clear_btn.pack(side="left")
+
+        # Console text area
+        text_frame = tk.Frame(container, bg=t.get("console_bg", "#0c1017"))
+        text_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self._text = tk.Text(
-            self, bg=t.get("console_bg", "#0a0a1a"),
-            fg=t.get("console_text", "#b0b0b0"),
-            font=("Consolas", 9), relief="flat", wrap="word",
-            insertbackground=t.get("text_primary", "#e0e0e0"),
-            selectbackground=t.get("bg_button", "#0f3460"),
+            text_frame,
+            bg=t.get("console_bg", "#0c1017"),
+            fg=t.get("console_text", "#94a3b8"),
+            font=(MONO_S), relief="flat", wrap="word",
+            insertbackground=t.get("text_primary", "#f1f5f9"),
+            selectbackground=t.get("accent_blue", "#3b82f6"),
             state="disabled", height=8,
+            highlightbackground=t.get("border_color", "#1e293b"),
+            highlightthickness=1,
         )
         self._scrollbar = tk.Scrollbar(
-            self, command=self._text.yview,
-            bg=t.get("bg_header", "#16213e"),
-            troughcolor=t.get("bg_panel", "#1a1a2e"),
+            text_frame, command=self._text.yview,
+            bg=t.get("bg_card", "#151d2b"),
+            troughcolor=t.get("console_bg", "#0c1017"),
+            highlightbackground=t.get("border_color", "#1e293b"),
         )
         self._text.configure(yscrollcommand=self._scrollbar.set)
 
-        self._scrollbar.pack(side="right", fill="y", padx=(0, 2), pady=2)
-        self._text.pack(side="left", fill="both", expand=True, padx=(2, 0), pady=2)
+        self._scrollbar.pack(side="right", fill="y", padx=(0, 0), pady=0)
+        self._text.pack(side="left", fill="both", expand=True, padx=0, pady=0)
 
         self._apply_tags()
 
     def _apply_tags(self):
         t = self._theme
-        self._text.tag_configure("timestamp", foreground=t.get("text_muted", "#666666"))
-        self._text.tag_configure("info", foreground=t.get("accent_blue", "#4fc3f7"))
-        self._text.tag_configure("warning", foreground=t.get("accent_orange", "#ffb74d"))
-        self._text.tag_configure("error", foreground=t.get("accent_red", "#ef5350"))
-        self._text.tag_configure("shock", foreground=t.get("accent_purple", "#e040fb"))
-        self._text.tag_configure("recv", foreground=t.get("accent_green", "#66bb6a"))
-        self._text.tag_configure("debug", foreground=t.get("text_muted", "#666666"))
+        self._text.tag_configure("timestamp", foreground=t.get("text_muted", "#475569"))
+        self._text.tag_configure("info", foreground=t.get("console_info", "#60a5fa"))
+        self._text.tag_configure("warning", foreground=t.get("console_warning", "#fbbf24"))
+        self._text.tag_configure("error", foreground=t.get("console_error", "#f87171"))
+        self._text.tag_configure("shock", foreground=t.get("accent_violet", "#a78bfa"))
+        self._text.tag_configure("recv", foreground=t.get("console_success", "#34d399"))
+        self._text.tag_configure("debug", foreground=t.get("text_muted", "#475569"))
 
     def apply_theme(self, theme: dict):
         self._theme = theme
         t = theme
-        self.configure(bg=t.get("bg_panel", "#1a1a2e"))
+        self.configure(bg=t.get("bg_panel", "#111827"))
         for w in self._get_all_widgets():
             try:
-                bg = t.get("bg_panel", "#1a1a2e")
-                fg = t.get("text_primary", "#e0e0e0")
+                bg = t.get("bg_card", "#151d2b")
+                fg = t.get("text_primary", "#f1f5f9")
                 if isinstance(w, tk.Text):
-                    w.configure(bg=t.get("console_bg", "#0a0a1a"),
-                                fg=t.get("console_text", "#b0b0b0"),
+                    w.configure(bg=t.get("console_bg", "#0c1017"),
+                                fg=t.get("console_text", "#94a3b8"),
                                 insertbackground=fg,
-                                selectbackground=t.get("bg_button", "#0f3460"))
+                                selectbackground=t.get("accent_blue", "#3b82f6"),
+                                highlightbackground=t.get("border_color", "#1e293b"))
                 elif isinstance(w, tk.Button):
-                    w.configure(bg=t.get("bg_button", "#0f3460"), fg=fg,
-                                activebackground=t.get("bg_button_hover", "#1a5276"))
+                    w.configure(bg=t.get("bg_input", "#0f1520"), fg=t.get("text_secondary", "#94a3b8"),
+                                activebackground=t.get("border_color", "#1e293b"))
                 elif isinstance(w, tk.Scrollbar):
-                    w.configure(bg=t.get("bg_header", "#16213e"),
-                                troughcolor=t.get("bg_panel", "#1a1a2e"))
+                    w.configure(bg=t.get("bg_card", "#151d2b"),
+                                troughcolor=t.get("console_bg", "#0c1017"))
                 elif isinstance(w, tk.Frame):
-                    w.configure(bg=t.get("bg_header", "#16213e"))
+                    w.configure(bg=bg)
                 elif isinstance(w, tk.Label):
-                    w.configure(bg=t.get("bg_header", "#16213e"), fg=fg)
+                    w.configure(bg=bg, fg=fg)
             except (tk.TclError, KeyError):
                 pass
         self._apply_tags()
@@ -124,9 +149,9 @@ class ConsolePanel(tk.Frame):
         self._show_debug = not self._show_debug
         t = self._theme
         if self._show_debug:
-            self._debug_btn.configure(fg=t.get("accent_cyan", "#39d2c0"))
+            self._debug_btn.configure(fg=t.get("accent_cyan", "#06b6d4"))
         else:
-            self._debug_btn.configure(fg=t.get("text_muted", "#666666"))
+            self._debug_btn.configure(fg=t.get("text_muted", "#475569"))
 
     def _clear(self):
         self._text.configure(state="normal")

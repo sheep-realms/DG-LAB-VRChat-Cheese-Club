@@ -4,9 +4,23 @@
 import os
 import sys
 
+# Enable high DPI awareness before tkinter loads
+if sys.platform == "win32":
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
 # Force matplotlib to use TkAgg backend before any matplotlib import
 os.environ["MPLBACKEND"] = "TkAgg"
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+import matplotlib
+matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei UI', 'SimHei', 'DejaVu Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False
 import logging
 
 logging.basicConfig(

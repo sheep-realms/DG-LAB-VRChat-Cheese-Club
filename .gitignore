@@ -3,4 +3,6 @@ dist/
 *.spec
 __pycache__/
 settings.json
+session_stats.json
 *.exe
+.omc/

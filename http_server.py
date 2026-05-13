@@ -44,18 +44,6 @@ class ShockHandler(BaseHTTPRequestHandler):
 
         if path == "/api/v1/status":
             self._handle_status()
-        elif path.startswith("/api/v1/shock/"):
-            parts = path.split("/")
-            if len(parts) >= 6:
-                self._handle_shock(parts[4], parts[5])
-            else:
-                self._send_json({"status": "error"}, 400)
-        elif path.startswith("/api/v1/sendwave/"):
-            parts = path.split("/")
-            if len(parts) >= 7:
-                self._handle_sendwave(parts[4], parts[5], parts[6])
-            else:
-                self._send_json({"status": "error"}, 400)
         elif params.get("ret") == ["status"]:
             self._handle_status()
         else:
@@ -85,7 +73,7 @@ class ShockHandler(BaseHTTPRequestHandler):
     def _handle_shock(self, channel: str, second_str: str):
         app = self.app
         if not app or not app._ws_client or not app._ws_client.is_paired:
-            self._send_json({"status": "error", "message": "not connected"})
+            self._send_json({"status": "error", "message": "not connected"}, 503)
             return
         try:
             seconds = min(float(second_str), 10.0)
@@ -93,7 +81,7 @@ class ShockHandler(BaseHTTPRequestHandler):
             seconds = 1.0
         if seconds < 1:
             seconds = 1.0
-        seconds = int(seconds)
+        seconds = round(seconds)
         # Map channel: A->0, B->1, all->2
         channel_map = {"a": 0, "b": 1}
         mode = channel_map.get(channel.lower(), 2) if channel.lower() not in ("all",) else 2
@@ -103,7 +91,7 @@ class ShockHandler(BaseHTTPRequestHandler):
     def _handle_sendwave(self, channel: str, repeat_str: str, wavedata: str):
         app = self.app
         if not app or not app._ws_client or not app._ws_client.is_paired:
-            self._send_json({"status": "error", "message": "not connected"})
+            self._send_json({"status": "error", "message": "not connected"}, 503)
             return
         try:
             repeat = max(1, min(int(repeat_str), 100))

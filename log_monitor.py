@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 
 SHOCK_PATTERN = re.compile(
-    r"\[DGLABCheeseShocking\]LocalShocking调用:\s*mode=(\w+),\s*seconds=(\d+),\s*hand=(\w+)"
+    r"\[DGLABCheeseShocking\]LocalShocking调用[:：]\s*mode=(\w+),\s*seconds=(\d+),\s*hand=(\w+)"
 )
 
 
@@ -58,11 +58,14 @@ class LogMonitor:
             return []
         lines = []
         try:
-            with open(self._current_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(self._current_file, "rb") as f:
                 f.seek(self._file_position)
-                for line in f:
-                    lines.append(line.rstrip("\n\r"))
+                data = f.read()
                 self._file_position = f.tell()
+                if data:
+                    text = data.decode("utf-8", errors="replace")
+                    for line in text.splitlines():
+                        lines.append(line)
         except OSError:
             pass
         return lines

@@ -8,10 +8,6 @@ DEFAULT_SETTINGS = {
     "b_limit": 200,
     "mode": "instant",
     "channel": "A",
-    "seconds_mapping": {
-        "1": 30, "2": 50, "3": 200, "4": 80,
-        "5": 100, "6": 120, "7": 150, "8": 170, "9": 185, "10": 200,
-    },
     "waveform_mode": "library",
     "poll_interval": 0.5,
     "idle_check_interval": 5,
@@ -21,7 +17,7 @@ DEFAULT_SETTINGS = {
     "theme": "dark",
     "chatbox_send_interval": 3,
     "chatbox_enabled": True,
-    "custom_chatbox": "我是Saob",
+    "custom_chatbox": "",
     "custom_waveform": "",
     "chatbox_toggles": {"line1": True, "line2": True, "line3": True, "line4": True, "line5": True},
     "http_port": 8800,
@@ -87,26 +83,22 @@ class Settings:
         for key, value in DEFAULT_SETTINGS.items():
             if key not in self._data:
                 self._data[key] = value
-        # Ensure seconds_mapping has all keys 1-10
-        sm = self._data.get("seconds_mapping", {})
-        for k in range(1, 11):
-            if str(k) not in sm:
-                sm[str(k)] = DEFAULT_SETTINGS["seconds_mapping"][str(k)]
-        self._data["seconds_mapping"] = sm
         return self._data
 
     def save(self):
         dir_name = os.path.dirname(self._path)
+        tmp_path = None
         try:
             fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
             os.replace(tmp_path, self._path)
         except OSError:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def get(self, key: str, default=None):
         return self._data.get(key, default)

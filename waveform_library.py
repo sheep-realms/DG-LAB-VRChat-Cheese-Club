@@ -166,19 +166,20 @@ def get_random() -> tuple[str, list[str]]:
 
 def scale_waveform(data: list[str], intensity: int) -> list[str]:
     """缩放波形数据到指定强度 (0-200)
-    波形中的强度值会被等比缩放到目标强度
+    FFFFIIII格式: 前8字符(freq[4]), 后8字符(intensity[4])
+    只缩放强度值，频率保持不变
     """
     if not data:
         return data
-    # 找到波形中的最大强度值
+    # 找到波形中的最大强度值 (FFFFIIII: intensity在每entry的后8字符)
     max_intensity = 0
     for entry in data:
-        # 每个entry: 8字节 = 4对(freq+intensity), 每对4字符
+        # intensity部分: 字符8-16 (每entry 16字符: 前8=fff, 后8=iii)
         for j in range(4):
-            pair_start = j * 4
-            if pair_start + 4 <= len(entry):
+            pos = 8 + j * 2
+            if pos + 2 <= len(entry):
                 try:
-                    val = int(entry[pair_start + 2:pair_start + 4], 16)
+                    val = int(entry[pos:pos + 2], 16)
                     max_intensity = max(max_intensity, val)
                 except ValueError:
                     pass
@@ -188,22 +189,21 @@ def scale_waveform(data: list[str], intensity: int) -> list[str]:
     scale = intensity / max_intensity
     result = []
     for entry in data:
-        new_entry = ""
-        for j in range(4):
-            pair_start = j * 4
-            if pair_start + 4 <= len(entry):
-                freq_hex = entry[pair_start:pair_start + 2]
-                intensity_hex = entry[pair_start + 2:pair_start + 4]
+        if len(entry) >= 16:
+            freq_part = entry[:8]  # FFFF: 前4字节频率
+            inten_part = entry[8:16]  # IIII: 后4字节强度
+            new_inten = ""
+            for j in range(4):
+                pos = j * 2
                 try:
-                    freq = int(freq_hex, 16)
-                    inten = int(intensity_hex, 16)
-                    new_inten = min(200, int(inten * scale))
-                    new_entry += f"{freq:02X}{new_inten:02X}"
+                    inten = int(inten_part[pos:pos + 2], 16)
+                    new_int = min(200, int(inten * scale))
+                    new_inten += f"{new_int:02X}"
                 except ValueError:
-                    new_entry += entry[pair_start:pair_start + 4]
-            else:
-                new_entry += "0000"
-        result.append(new_entry)
+                    new_inten += inten_part[pos:pos + 2]
+            result.append(freq_part + new_inten)
+        else:
+            result.append(entry)
     return result
 
 

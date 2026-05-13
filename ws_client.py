@@ -81,11 +81,20 @@ class WSClient:
 
         self._strength = {"A": 0, "B": 0}
         self._strength_max = {"A": 200, "B": 200}
+        self._waveform_active = False  # Suppress reactive strength correction during waveform playback
+        self._server_socket = None
 
     def _run_server(self):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self._server_main())
+        try:
+            self._loop.run_until_complete(self._server_main())
+        finally:
+            # Close all remaining tasks
+            for task in asyncio.all_tasks(self._loop):
+                task.cancel()
+            self._loop.close()
+            self._loop = None
 
     async def _server_main(self):
         async def handler(ws):
@@ -106,6 +115,7 @@ class WSClient:
             sock.setsockopt(_sock.SOL_SOCKET, _sock.SO_REUSEADDR, 1)
             sock.bind((self._host, self._port))
             sock.listen()
+            self._server_socket = sock
 
             self._on_status("connected")
             self._on_message({"type": "info", "text": f"服务器已启动: {local_ip}:{self._port}"})
@@ -170,7 +180,6 @@ class WSClient:
                         a_limit = self._on_get_a_limit() if self._on_get_a_limit else 200
                         b_limit = self._on_get_b_limit() if self._on_get_b_limit else 200
                         asyncio.ensure_future(self._init_strength(a_limit, b_limit))
-                        asyncio.ensure_future(self._periodic_strength(a_limit, b_limit))
                     else:
                         resp = _make_msg("bind", client_id=msg_client, target_id=msg_target, message="400")
                         await ws.send(resp)
@@ -193,14 +202,19 @@ class WSClient:
                                 "b_limit": self._strength_max["B"],
                             })
                             # Reactive: force strength back to limit when it deviates
-                            a_limit = self._on_get_a_limit() if self._on_get_a_limit else 200
-                            b_limit = self._on_get_b_limit() if self._on_get_b_limit else 200
-                            if self._strength["A"] != 0 and self._strength["A"] != a_limit:
-                                self._on_message({"type": "debug", "text": f"矫正强度A: {self._strength['A']} -> {a_limit}"})
-                                await self._send_to_app("msg", f"strength-1+2+{a_limit}")
-                            if self._strength["B"] != 0 and self._strength["B"] != b_limit:
-                                self._on_message({"type": "debug", "text": f"矫正强度B: {self._strength['B']} -> {b_limit}"})
-                                await self._send_to_app("msg", f"strength-2+2+{b_limit}")
+                            # Skip during waveform playback to avoid flooding device with commands
+                            if not self._waveform_active:
+                                a_limit = self._on_get_a_limit() if self._on_get_a_limit else 200
+                                b_limit = self._on_get_b_limit() if self._on_get_b_limit else 200
+                                # Clamp to phone's reported max
+                                a_limit = min(a_limit, self._strength_max.get("A", 200))
+                                b_limit = min(b_limit, self._strength_max.get("B", 200))
+                                if self._strength["A"] != 0 and self._strength["A"] != a_limit:
+                                    self._on_message({"type": "debug", "text": f"矫正强度A: {self._strength['A']} -> {a_limit}"})
+                                    await self._send_to_app("msg", f"strength-1+2+{a_limit}")
+                                if self._strength["B"] != 0 and self._strength["B"] != b_limit:
+                                    self._on_message({"type": "debug", "text": f"矫正强度B: {self._strength['B']} -> {b_limit}"})
+                                    await self._send_to_app("msg", f"strength-2+2+{b_limit}")
                     else:
                         self._on_message({"type": "debug", "text": f"MSG: {msg_data}"})
 
@@ -213,6 +227,10 @@ class WSClient:
             self._on_message({"type": "warning", "text": f"连接异常: {e}"})
         finally:
             hb_task.cancel()
+            try:
+                await asyncio.gather(hb_task, return_exceptions=True)
+            except Exception:
+                pass
             with self._lock:
                 if self._app_target_id:
                     self._uuid_to_ws.pop(self._app_target_id, None)
@@ -236,43 +254,11 @@ class WSClient:
 
     async def _init_strength(self, a_limit: int = 200, b_limit: int = 200):
         await asyncio.sleep(2)  # Wait for APP to fully initialize
-        # Try both set mode and increase mode
-        # First: set mode (mode=2)
-        await self._send_to_app("msg", f"strength-1+2+{a_limit}")
+        # Match reference project: set to 1 first, let reactive correction raise to limit
+        await self._send_to_app("msg", f"strength-1+2+1")
         await asyncio.sleep(0.5)
-        await self._send_to_app("msg", f"strength-2+2+{b_limit}")
-        await asyncio.sleep(0.5)
-        # Second: increase mode (mode=1) to max
-        await self._send_to_app("msg", f"strength-1+1+{a_limit}")
-        await asyncio.sleep(0.5)
-        await self._send_to_app("msg", f"strength-2+1+{b_limit}")
-        self._on_message({"type": "info", "text": f"强度已设为上限 A:{a_limit} B:{b_limit}"})
-
-    async def _periodic_strength(self, a_limit: int = 200, b_limit: int = 200):
-        """Periodically force strength to max while bound. Only sends when needed."""
-        await asyncio.sleep(5)  # Wait for APP to fully initialize
-        self._on_message({"type": "debug", "text": f"定时强度任务启动 A:{a_limit} B:{b_limit}"})
-        while True:
-            await asyncio.sleep(1)
-            with self._lock:
-                if not self._bound:
-                    self._on_message({"type": "debug", "text": "定时强度任务停止: 未配对"})
-                    break
-                cur_a = self._strength["A"]
-                cur_b = self._strength["B"]
-            a_limit = self._on_get_a_limit() if self._on_get_a_limit else a_limit
-            b_limit = self._on_get_b_limit() if self._on_get_b_limit else b_limit
-            # Only send if strength differs from limit (or is 0 = never set)
-            need_a = cur_a != a_limit
-            need_b = cur_b != b_limit
-            if need_a or need_b:
-                if need_a:
-                    await self._send_to_app("msg", f"strength-1+2+{a_limit}")
-                if need_b:
-                    await self._send_to_app("msg", f"strength-2+2+{b_limit}")
-            else:
-                # Both at limit, slow down to every 5 seconds
-                await asyncio.sleep(4)
+        await self._send_to_app("msg", f"strength-2+2+1")
+        self._on_message({"type": "info", "text": f"强度初始化 A:{a_limit} B:{b_limit}"})
 
     async def _send_to_app(self, msg_type: str, message: str):
         """Send a message to the APP."""
@@ -280,17 +266,20 @@ class WSClient:
             target = self._app_target_id
             ws = self._uuid_to_ws.get(target) if target else None
         if not target:
-            self._on_message({"type": "debug", "text": "发送失败: 无targetId"})
+            self._on_message({"type": "warning", "text": f"发送失败: 无targetId (msg={message[:30]})"})
             return
         if not ws:
-            self._on_message({"type": "debug", "text": f"发送失败: 无websocket {target[:8]}"})
+            self._on_message({"type": "warning", "text": f"发送失败: 无websocket (msg={message[:30]})"})
             return
         msg = _make_msg(msg_type, client_id=self._local_client_id, target_id=target, message=message)
         try:
             await ws.send(msg)
-            self._on_message({"type": "debug", "text": f"发送: {message[:60]}"})
+            if message.startswith("pulse"):
+                self._on_message({"type": "info", "text": f"✓ pulse已发送({len(message)}字符): {message[:60]}"})
+            else:
+                self._on_message({"type": "debug", "text": f"发送({len(message)}字符): {message[:60]}"})
         except Exception as e:
-            self._on_message({"type": "debug", "text": f"发送异常: {e}"})
+            self._on_message({"type": "warning", "text": f"发送异常: {type(e).__name__}: {e} (msg={message[:30]})"})
 
     def connect(self, host: str = "0.0.0.0", port: int = 9999):
         if self._running:
@@ -305,30 +294,36 @@ class WSClient:
 
     def disconnect(self):
         self._running = False
-        # Close all WebSocket connections first (while loop is still running)
+        # Close the server socket to release the port immediately
+        if self._server_socket:
+            try:
+                self._server_socket.close()
+            except Exception as e:
+                logger.debug(f"关闭server socket异常: {e}")
+            self._server_socket = None
+        # Send close frames to all WebSocket connections BEFORE stopping loop
         with self._lock:
             targets = list(self._uuid_to_ws.values())
-        for ws in targets:
-            try:
-                fut = asyncio.run_coroutine_threadsafe(ws.close(), self._loop) if self._loop else None
-                if fut:
-                    fut.result(timeout=1)
-            except Exception:
-                pass
-        # Now stop the event loop
+            self._uuid_to_ws.clear()
+            self._bound = False
+            self._app_target_id = None
+            self._app_uuid_in_bind = None
+        if self._loop and self._loop.is_running():
+            for ws in targets:
+                try:
+                    fut = asyncio.run_coroutine_threadsafe(ws.close(), self._loop)
+                    fut.result(timeout=2)
+                except Exception as e:
+                    logger.debug(f"关闭websocket异常: {e}")
+        # Stop the event loop
         if self._loop:
             try:
                 self._loop.call_soon_threadsafe(self._loop.stop)
             except Exception:
                 pass
         if self._thread:
-            self._thread.join(timeout=2)
+            self._thread.join(timeout=5)
             self._thread = None
-        with self._lock:
-            self._uuid_to_ws.clear()
-            self._bound = False
-            self._app_target_id = None
-            self._app_uuid_in_bind = None
         self._on_status("disconnected")
 
     @property
@@ -354,51 +349,62 @@ class WSClient:
         """Immediately force both channels to their limits."""
         if not self.is_paired:
             return
+        # Clamp to phone's reported max — phone rejects values above its slider
+        with self._lock:
+            a_val = min(a_limit, self._strength_max.get("A", 200))
+            b_val = min(b_limit, self._strength_max.get("B", 200))
         if self._loop and self._loop.is_running():
-            # Set mode
             asyncio.run_coroutine_threadsafe(
-                self._send_to_app("msg", f"strength-1+2+{a_limit}"), self._loop
+                self._send_to_app("msg", f"strength-1+2+{a_val}"), self._loop
             )
             asyncio.run_coroutine_threadsafe(
-                self._send_to_app("msg", f"strength-2+2+{b_limit}"), self._loop
-            )
-            # Increase mode
-            asyncio.run_coroutine_threadsafe(
-                self._send_to_app("msg", f"strength-1+1+{a_limit}"), self._loop
-            )
-            asyncio.run_coroutine_threadsafe(
-                self._send_to_app("msg", f"strength-2+1+{b_limit}"), self._loop
+                self._send_to_app("msg", f"strength-2+2+{b_val}"), self._loop
             )
 
     def send_waveform(self, channel: str, hex_data, duration: int = 5):
+        """Send waveform data to device. No clear needed - device replaces queue automatically."""
         if not self.is_paired:
+            self._on_message({"type": "warning", "text": f"send_waveform 跳过: 未配对"})
             return
+        self._waveform_active = True
         if isinstance(hex_data, list):
             pass  # already a list
         elif isinstance(hex_data, str):
             try:
                 hex_data = json.loads(hex_data)  # parse JSON string to list
             except (json.JSONDecodeError, ValueError):
+                self._on_message({"type": "warning", "text": f"send_waveform 跳过: JSON解析失败 type={type(hex_data)}"})
                 return
         else:
+            self._on_message({"type": "warning", "text": f"send_waveform 跳过: 未知类型 {type(hex_data)}"})
             return
         if not isinstance(hex_data, list) or not hex_data:
+            self._on_message({"type": "warning", "text": f"send_waveform 跳过: 数据为空 type={type(hex_data)}"})
             return
+        ch_name = channel.upper()  # pulse uses letters: A, B
         # pydglab_ws limit: max 86 entries per message, max 1950 chars
         CHUNK_SIZE = 86
         if self._loop and self._loop.is_running():
+            self._on_message({"type": "info", "text": f"发送波形 {ch_name}: {len(hex_data)}条数据"})
             for i in range(0, len(hex_data), CHUNK_SIZE):
                 chunk = hex_data[i:i + CHUNK_SIZE]
                 wavestr = json.dumps(chunk, separators=(",", ":"))
                 asyncio.run_coroutine_threadsafe(
-                    self._send_to_app("msg", f"pulse-{channel}:{wavestr}"), self._loop
+                    self._send_to_app("msg", f"pulse-{ch_name}:{wavestr}"), self._loop
                 )
+        else:
+            self._on_message({"type": "warning", "text": f"send_waveform 跳过: loop不可用"})
 
     def clear_waveform(self, channel: str):
         if not self.is_paired:
             return
+        self._waveform_active = False
         ch_num = "1" if channel.upper() == "A" else "2"
         if self._loop and self._loop.is_running():
             asyncio.run_coroutine_threadsafe(
                 self._send_to_app("msg", f"clear-{ch_num}"), self._loop
             )
+
+    def stop_waveform(self):
+        """Mark waveform as inactive without sending clear to device."""
+        self._waveform_active = False
