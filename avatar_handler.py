@@ -19,6 +19,7 @@ def generate_wave_100ms(freq: int, from_: float, to_: float) -> str:
     Each entry: 4 freq bytes + 4 interpolated intensity bytes = 8 bytes = 8 hex chars.
     Output format: ["0A0A0A0A64646464"] — array with single 8-char hex string.
     """
+    freq = max(0, min(255, freq))
     from_ = int(100 * from_)
     to_ = int(100 * to_)
     ret = [f"{freq:02X}"] * 4
@@ -41,6 +42,8 @@ class DistanceMode:
         self.last_strength = 0.0
 
     def normalize(self, value: float) -> float:
+        if self.trigger_top <= self.trigger_bottom:
+            return 0.0
         if value > self.trigger_bottom:
             out = (value - self.trigger_bottom) / (self.trigger_top - self.trigger_bottom)
             return min(out, 1.0)
@@ -110,6 +113,8 @@ class TouchMode:
         self.last_strength = 0.0
 
     def normalize(self, value: float) -> float:
+        if self.trigger_top <= self.trigger_bottom:
+            return 0.0
         if value > self.trigger_bottom:
             out = (value - self.trigger_bottom) / (self.trigger_top - self.trigger_bottom)
             return min(out, 1.0)
@@ -162,7 +167,7 @@ class TouchMode:
 
     def get_wave(self) -> Optional[str]:
         deriv = self._compute_derivative()
-        n = min(self.n_derivative, len(deriv) - 1)
+        n = min(self.n_derivative, len(deriv) - 1, len(self.derivative_params) - 1)
         raw = abs(deriv[n])
         params = self.derivative_params[n]
         top = params.get("top", 1)
@@ -268,6 +273,8 @@ class AvatarManager:
         self._osc_thread = None
         self._running = False
         self._bg_loop = None
+        self._bg_thread = None
+        self._bg_tasks_started = False  # Prevent duplicate task creation
 
     def configure(self, channel_a_params: list, channel_a_mode: str, channel_a_config: dict,
                   channel_b_params: list, channel_b_mode: str, channel_b_config: dict):
@@ -287,6 +294,9 @@ class AvatarManager:
 
     def _start_bg_tasks(self):
         """Start background asyncio tasks for wave generation."""
+        if self._bg_tasks_started:
+            return  # Prevent duplicate task creation / orphaned threads
+        self._bg_tasks_started = True
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -314,6 +324,7 @@ class AvatarManager:
                 new_loop.run_forever()
 
             t = threading.Thread(target=_run, daemon=True)
+            self._bg_thread = t
             t.start()
 
     async def _wave_feeder(self, channel: str):
@@ -356,12 +367,16 @@ class AvatarManager:
     def stop(self):
         """Stop OSC listening and background tasks."""
         self._running = False
+        self._bg_tasks_started = False
         if self._bg_loop:
             try:
                 self._bg_loop.call_soon_threadsafe(self._bg_loop.stop)
             except Exception:
                 pass
             self._bg_loop = None
+        if self._bg_thread:
+            self._bg_thread.join(timeout=2)
+            self._bg_thread = None
         if self._osc_server:
             try:
                 self._osc_server.shutdown()

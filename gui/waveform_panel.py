@@ -23,14 +23,14 @@ class WaveformPanel(tk.Frame):
         self._theme = theme or {}
         super().__init__(master, bg=self._theme.get("bg_panel", "#1a1a2e"), **kwargs)
 
-        self._history = collections.deque(maxlen=200)
-        self._visible_seconds = 6
+        self._history = collections.deque(maxlen=600)  # 15s @ 25ms per sample
+        self._visible_seconds = 12
         self._tick_id = None
         self._tick_stopped = False
         self._active = False
         self._push_pending = []  # thread-safe push buffer
         self._lock = threading.Lock()
-        self._push_max_pending = 200  # cap pending buffer to prevent unbounded growth
+        self._push_max_pending = 50  # cap pending buffer to prevent unbounded growth
 
         # Current intensity values for display
         self._current_a = 0

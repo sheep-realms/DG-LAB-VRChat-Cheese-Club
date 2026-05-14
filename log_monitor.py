@@ -18,7 +18,7 @@ class LogMonitor:
         on_log_line: Callable[[str], None],
         log_dir: str = "",
         poll_interval: float = 0.5,
-        idle_check_interval: float = 5.0,
+        idle_check_interval: float = 10.0,
     ):
         self._on_shock = on_shock_event
         self._on_log_line = on_log_line
@@ -40,14 +40,24 @@ class LogMonitor:
     def _find_latest_log(self) -> Optional[Path]:
         if not self._log_dir.exists():
             return None
-        log_files = sorted(
-            self._log_dir.glob("output_log_*.txt"),
-            key=lambda f: f.stat().st_mtime,
-            reverse=True,
-        )
-        return log_files[0] if log_files else None
+        candidates = []
+        for f in self._log_dir.glob("output_log_*.txt"):
+            try:
+                candidates.append((f.stat().st_mtime, f.name, f))
+            except OSError:
+                continue
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        return candidates[0][2]
 
     def _check_for_newer_file(self) -> Optional[Path]:
+        # If current file doesn't exist, find a new one immediately
+        if self._current_file and not self._current_file.exists():
+            latest = self._find_latest_log()
+            if latest:
+                return latest
+            return None
         latest = self._find_latest_log()
         if latest and self._current_file and latest != self._current_file:
             return latest
@@ -59,18 +69,42 @@ class LogMonitor:
         lines = []
         try:
             with open(self._current_file, "rb") as f:
+                f.seek(0, 2)
+                file_size = f.tell()
+                if self._file_position >= file_size:
+                    return []
                 f.seek(self._file_position)
-                data = f.read()
+                # Read up to 256KB to handle burst log writes without dropping data
+                read_size = min(file_size - self._file_position, 262144)
+                data = f.read(read_size)
                 self._file_position = f.tell()
                 if data:
                     text = data.decode("utf-8", errors="replace")
-                    for line in text.splitlines():
-                        lines.append(line)
+                    new_lines = text.splitlines()
+                    # Stitch incomplete line from previous read
+                    if hasattr(self, '_pending_line') and self._pending_line:
+                        new_lines[0] = self._pending_line + new_lines[0]
+                        self._pending_line = None
+                    # If data doesn't end with a line break, the last split
+                    # element may be incomplete — save it for next read
+                    if data and not data.endswith(b'\n') and not data.endswith(b'\r'):
+                        if new_lines:
+                            self._pending_line = new_lines.pop()
+                    lines = new_lines
         except OSError:
             pass
         return lines
 
     def _process_line(self, line: str):
+        # Quick check: only process lines that might be relevant
+        if "[DGLABCheeseShocking]" not in line and "[ShockingManager]" not in line and "ShockingPlayer" not in line:
+            return
+        # Debug: log that we found a relevant line to file
+        try:
+            with open("log_monitor_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"[DEBUG] Relevant line: {line[:80]}\n")
+        except:
+            pass
         self._on_log_line(line)
         match = SHOCK_PATTERN.search(line)
         if match:
@@ -82,6 +116,7 @@ class LogMonitor:
             self._on_shock(event)
 
     def _monitor_loop(self):
+        _last_file_check = time.time()
         while not self._stop_event.is_set():
             # Find initial file if not set
             if self._current_file is None or not self._current_file.exists():
@@ -99,11 +134,15 @@ class LogMonitor:
             if new_lines:
                 self._last_activity_time = time.time()
                 for line in new_lines:
-                    self._process_line(line)
+                    try:
+                        self._process_line(line)
+                    except Exception:
+                        pass  # Never let a single bad line kill the monitor thread
 
-            # Check for newer log file if idle
-            elapsed = time.time() - self._last_activity_time
-            if elapsed >= self._idle_check_interval:
+            # Check for newer log file — run periodically, not just when idle
+            now = time.time()
+            if now - _last_file_check >= self._idle_check_interval:
+                _last_file_check = now
                 newer = self._check_for_newer_file()
                 if newer:
                     self._on_log_line(f"[日志] 检测到新日志文件: {newer.name}")

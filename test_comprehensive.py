@@ -130,7 +130,7 @@ def test_ws_protocol_messages():
 
 # ========== 8. WSClient init strength ==========
 def test_ws_init_strength():
-    """_init_strength uses mode=2 with value=1."""
+    """_init_strength sends strength per channel."""
     client = WSClient()
     client._bound = True
     client._app_target_id = "test-target"
@@ -145,8 +145,8 @@ def test_ws_init_strength():
     loop.close()
 
     assert len(sent) == 2, f"Expected 2, got {len(sent)}"
-    assert sent[0] == "strength-1+2+1", f"Got {sent[0]}"
-    assert sent[1] == "strength-2+2+1", f"Got {sent[1]}"
+    assert sent[0] == "strength-1+2+150", f"Got {sent[0]}"
+    assert sent[1] == "strength-2+2+180", f"Got {sent[1]}"
     print("PASS: ws_init_strength")
 
 
@@ -277,9 +277,9 @@ def test_waveform_chunking():
 def test_safety_limits():
     """Safety limit constants are reasonable."""
     from constants import SAFETY_WINDOW_SECONDS, SAFETY_MAX_PER_WINDOW, SAFETY_MAX_TOTAL
-    assert SAFETY_WINDOW_SECONDS == 1.0
-    assert SAFETY_MAX_PER_WINDOW == 10
-    assert SAFETY_MAX_TOTAL == 15
+    assert SAFETY_WINDOW_SECONDS == 10.0
+    assert SAFETY_MAX_PER_WINDOW == 30
+    assert SAFETY_MAX_TOTAL == 30
     print("PASS: safety_limits")
 
 

@@ -143,3 +143,4 @@ class HttpServer:
                 pass
             self._server = None
             self._thread = None
+        ShockHandler.app = None  # Release App reference to allow GC

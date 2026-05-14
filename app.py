@@ -1,5 +1,6 @@
 import logging
 import threading
+import collections
 from settings import Settings
 from themes import get_theme
 from log_monitor import LogMonitor
@@ -69,8 +70,8 @@ class App:
         self._shock_remaining_a = 0
         self._shock_remaining_b = 0
         self._shock_end_time = 0
-        self._shock_recent_events_log = []   # 日志触发的 1s 窗口安全限制
-        self._shock_recent_events_http = []  # HTTP 触发的 1s 窗口安全限制
+        self._shock_recent_events_log = collections.deque(maxlen=100)   # 日志触发的窗口安全限制
+        self._shock_recent_events_http = collections.deque(maxlen=100)  # HTTP 触发的窗口安全限制
         self._waveform_name_a = ""
         self._waveform_name_b = ""
         self._waveform_feeder_running = False
@@ -88,7 +89,8 @@ class App:
         self._http_server = HttpServer(port=self._settings.get("http_port", 8800))
 
     def _read_ui(self, func):
-        """Thread-safe: read a UI value from a background thread."""
+        """Thread-safe: read a UI value from a background thread.
+        Retries once on timeout. Returns None only if both attempts time out."""
         import threading as _t
         result = [None]
         done = _t.Event()
@@ -96,8 +98,39 @@ class App:
             result[0] = func()
             done.set()
         self._window.after(0, _read)
-        done.wait(timeout=2)
+        if not done.wait(timeout=2):
+            # Retry once — UI thread may have been busy
+            done.clear()
+            self._window.after(0, _read)
+            done.wait(timeout=1)
         return result[0]
+
+    def _read_shock_ui(self) -> dict:
+        """Read ALL shock-related UI values in ONE thread-safe call.
+        Avoids 8 round-trips to the UI thread that cause multi-second delays."""
+        import threading as _t
+        result = {}
+        done = _t.Event()
+        def _read():
+            try:
+                p = self._window.settings_panel
+                result['a_limit'] = p.get_a_limit()
+                result['b_limit'] = p.get_b_limit()
+                result['dual_ch'] = p.get_dual_channel()
+                result['max_mode'] = p.get_max_mode()
+                result['mode'] = p.get_mode()
+                result['wf_mode'] = p.get_waveform_mode()
+                result['custom_wf'] = p.get_custom_waveform()
+                result['alternate'] = p.get_alternate_waveform()
+            except Exception:
+                pass
+            done.set()
+        self._window.after(0, _read)
+        if not done.wait(timeout=2):
+            done.clear()
+            self._window.after(0, _read)
+            done.wait(timeout=1)
+        return result
 
     def run(self):
         # Open session log file (overwrite each launch)
@@ -107,8 +140,12 @@ class App:
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
         log_path = os.path.join(base_dir, "latest_session.log")
+        # Truncate if log file too large (>1MB)
         try:
-            self._log_file = open(log_path, "w", encoding="utf-8")
+            if os.path.exists(log_path) and os.path.getsize(log_path) > 1024 * 1024:
+                with open(log_path, "w", encoding="utf-8") as f:
+                    f.write("[日志] 日志文件已截断 (大小超过1MB)\n")
+            self._log_file = open(log_path, "a", encoding="utf-8")
         except Exception:
             pass
         theme = get_theme(self._current_theme_name)
@@ -181,23 +218,30 @@ class App:
 
     def _apply_safety_limits(self, seconds: float, recent_events: list, log_warning: bool = True) -> tuple[float, bool]:
         """Apply safety limits. Returns (adjusted_seconds, should_continue)."""
+        if seconds <= 0:
+            return 0, False
         import time as _time
         with self._safety_lock:
             now = _time.time()
 
             # Window-based accumulation
             recent_events.append((now, seconds))
-            recent_events[:] = [(t, s) for t, s in recent_events if now - t <= SAFETY_WINDOW_SECONDS]
+            # For deque, we need to remove old items manually
+            while recent_events and now - recent_events[0][0] > SAFETY_WINDOW_SECONDS:
+                recent_events.popleft()
             recent_sum = sum(s for _, s in recent_events)
             if recent_sum > SAFETY_MAX_PER_WINDOW:
                 allowed = max(0, SAFETY_MAX_PER_WINDOW - (recent_sum - seconds))
                 seconds = allowed
-                recent_events[-1] = (now, seconds)
+                # Update last element
+                if recent_events:
+                    recent_events[-1] = (now, seconds)
 
             if seconds <= 0:
+                # Allow at least 1 second to keep shock running
+                seconds = 1
                 if log_warning:
-                    self._log_to_console(f"安全限制: {SAFETY_WINDOW_SECONDS}秒内累计已超{SAFETY_MAX_PER_WINDOW}秒，忽略本次电击", "warning")
-                return 0, False
+                    self._log_to_console(f"安全限制: 窗口内累计超限，限制为1秒", "warning")
 
             # Total cap — ensure total remaining never exceeds SAFETY_MAX_TOTAL
             if now < self._shock_end_time:
@@ -206,11 +250,9 @@ class App:
                 current_remaining = 0
 
             if current_remaining + seconds > SAFETY_MAX_TOTAL:
-                seconds = max(0, SAFETY_MAX_TOTAL - current_remaining)
-                if seconds <= 0:
-                    if log_warning:
-                        self._log_to_console(f"安全限制: 总时长已达{SAFETY_MAX_TOTAL}秒上限", "warning")
-                    return 0, False
+                seconds = max(1, SAFETY_MAX_TOTAL - current_remaining)  # Allow at least 1 second
+                if log_warning:
+                    self._log_to_console(f"安全限制: 总时长已达{SAFETY_MAX_TOTAL}秒上限，限制为{seconds}秒", "warning")
 
             # Update remaining time — use current_remaining, not old accumulated value
             new_remaining = current_remaining + seconds
@@ -250,11 +292,13 @@ class App:
         seconds = event.get("seconds", 3)
         _ = event.get("hand", "A")  # reserved for future single-channel support
 
-        # Read UI values thread-safely
-        a_limit = self._read_ui(self._window.settings_panel.get_a_limit)
-        b_limit = self._read_ui(self._window.settings_panel.get_b_limit)
-        dual_ch = self._read_ui(self._window.settings_panel.get_dual_channel)
-        max_mode = self._read_ui(self._window.settings_panel.get_max_mode)
+        # Batch-read ALL UI values in ONE call — avoids 8 round-trips blocking for seconds
+        ui = self._read_shock_ui()
+        a_limit = ui.get('a_limit', 200)
+        b_limit = ui.get('b_limit', 200)
+        dual_ch = ui.get('dual_ch', False)
+        max_mode = ui.get('max_mode', False)
+
         if dual_ch:
             b_limit = a_limit
         if max_mode:
@@ -268,22 +312,32 @@ class App:
             if dual_ch:
                 b_intensity = a_intensity
 
-        ui_mode = self._read_ui(self._window.settings_panel.get_mode)
-        wf_mode = self._read_ui(self._window.settings_panel.get_waveform_mode)
-
-        # Apply safety limits
-        seconds, should_continue = self._apply_safety_limits(seconds, self._shock_recent_events_log)
-        if not should_continue:
+        # Skip if device not connected — don't accumulate safety events for unsent shocks
+        if not self._ws_client or not self._ws_client.is_paired:
+            self._log_to_console(
+                f"电击: {seconds}秒 A:{a_intensity} B:{b_intensity} (未发送-等待APP连接)",
+                "shock",
+            )
             return
 
-        custom_wf = self._read_ui(self._window.settings_panel.get_custom_waveform) if wf_mode == "custom" else ""
+        ui_mode = ui.get('mode', 'instant')
+        wf_mode = ui.get('wf_mode', 'library')
+
+        # Apply safety limits — do NOT extend shock_end_time, let current shock finish naturally
+        seconds, should_continue = self._apply_safety_limits(seconds, self._shock_recent_events_log)
+        if not should_continue:
+            if self._waveform_feeder_running:
+                self._log_to_console(f"安全限制: 已达上限，当前电击继续但不延长时间", "warning")
+            return
+
+        custom_wf = ui.get('custom_wf', '') if wf_mode == 'custom' else ''
         if max_mode:
             a_wave = _ramp_waveform(seconds, a_intensity)
             b_wave = _ramp_waveform(seconds, b_intensity)
             a_name = "拉满"
             b_name = "拉满"
         else:
-            alternate = self._read_ui(self._window.settings_panel.get_alternate_waveform)
+            alternate = ui.get('alternate', True)
             a_wave, b_wave, a_name, b_name = generate_ab_waveforms(
                 seconds, a_intensity, b_intensity, ui_mode, wf_mode, alternate=alternate,
                 custom_waveform=custom_wf,
@@ -291,73 +345,97 @@ class App:
         self._waveform_name_a = a_name
         self._waveform_name_b = b_name
 
-        if self._ws_client and self._ws_client.is_paired:
-            # Stop old feeder FIRST to prevent it from overwriting new data
-            self._waveform_feeder_running = False
-            self._feeder_generation += 1
-            # Store initial waveform for feeder to loop (keeps device playing same pattern)
-            self._feeder_initial_a = a_wave
-            self._feeder_initial_b = b_wave
-            # Set strength + send new waveform — device replaces queue automatically
-            self._ws_client.force_strength(a_limit, b_limit)
-            # Wait for device to process strength command before sending pulse data
-            import time as _time
-            _time.sleep(0.5)
-            self._send_waveform("A", a_wave, seconds)
-            self._send_waveform("B", b_wave, seconds)
-            self._log_to_console(
-                f"电击: {seconds}秒 | A:{a_intensity}({a_name}) B:{b_intensity}({b_name}) | "
-                f"{'一键开火' if ui_mode == 'instant' else '温柔加力'}",
-                "shock",
-            )
-            with self._safety_lock:
-                self._stats_a_seconds += seconds
-                self._stats_b_seconds += seconds
-                self._stats_a_intensity_time += a_intensity * seconds
-                self._stats_b_intensity_time += b_intensity * seconds
-            self._window.after(0, lambda: self._window.settings_panel.update_stats(
-                self._stats_a_seconds, self._stats_b_seconds,
-                self._stats_a_intensity_time, self._stats_b_intensity_time,
-            ))
-            self._push_waveform_display(a_wave, b_wave, a_name, b_name, a_intensity, b_intensity)
-            self._start_waveform_feeder()
-        else:
-            self._log_to_console(
-                f"电击: {seconds}秒 A:{a_intensity} B:{b_intensity} (未发送-等待APP连接)",
-                "shock",
-            )
+        # Seamless feeder transition: update data in place, start new gen without stopping old
+        already_feeding = self._waveform_feeder_running
+        self._feeder_initial_a = a_wave
+        self._feeder_initial_b = b_wave
 
-    def _start_waveform_feeder(self):
-        # Increment generation — old thread will see mismatch and exit
-        self._feeder_generation += 1
-        self._waveform_feeder_running = True
-        # Read UI values thread-safely
-        self._feeder_ui_mode = self._read_ui(self._window.settings_panel.get_mode)
-        self._feeder_wf_mode = self._read_ui(self._window.settings_panel.get_waveform_mode)
-        self._feeder_a_limit = self._read_ui(self._window.settings_panel.get_a_limit)
-        self._feeder_b_limit = self._read_ui(self._window.settings_panel.get_b_limit)
-        self._feeder_max_mode = self._read_ui(self._window.settings_panel.get_max_mode)
-        self._feeder_dual_ch = self._read_ui(self._window.settings_panel.get_dual_channel)
+        # Set strength + send initial waveform — no sleep needed, device handles queue
+        self._ws_client.force_strength(a_limit, b_limit)
+        self._send_waveform("A", a_wave, seconds)
+        self._send_waveform("B", b_wave, seconds)
+        self._log_to_console(
+            f"电击: {seconds}秒 | A:{a_intensity}({a_name}) B:{b_intensity}({b_name}) | "
+            f"{'一键开火' if ui_mode == 'instant' else '温柔加力'}",
+            "shock",
+        )
+        with self._safety_lock:
+            self._stats_a_seconds += seconds
+            self._stats_b_seconds += seconds
+            self._stats_a_intensity_time += a_intensity * seconds
+            self._stats_b_intensity_time += b_intensity * seconds
+        self._window.after(0, lambda: self._window.settings_panel.update_stats(
+            self._stats_a_seconds, self._stats_b_seconds,
+            self._stats_a_intensity_time, self._stats_b_intensity_time,
+        ))
+        self._push_waveform_display(a_wave, b_wave, a_name, b_name, a_intensity, b_intensity)
+
+        # Start or refresh feeder — avoids stop/restart gap that causes device queue drain
+        if already_feeding:
+            self._refresh_feeder(ui, seconds)
+        else:
+            self._start_waveform_feeder(ui, seconds)
+
+    def _apply_feeder_ui(self, ui: dict):
+        """Apply UI values to feeder state — shared by _start and _refresh."""
+        self._feeder_ui_mode = ui.get('mode', 'instant')
+        self._feeder_wf_mode = ui.get('wf_mode', 'library')
+        self._feeder_a_limit = ui.get('a_limit', 200)
+        self._feeder_b_limit = ui.get('b_limit', 200)
+        self._feeder_max_mode = ui.get('max_mode', False)
+        self._feeder_dual_ch = ui.get('dual_ch', False)
         if self._feeder_dual_ch:
             self._feeder_b_limit = self._feeder_a_limit
         if self._feeder_max_mode:
             self._feeder_a_limit = 200
             self._feeder_b_limit = 200
         self._feeder_custom_wf = (
-            self._read_ui(self._window.settings_panel.get_custom_waveform)
-            if self._feeder_wf_mode == "custom" else ""
+            ui.get('custom_wf', '') if self._feeder_wf_mode == 'custom' else ''
         )
+
+    def _start_waveform_feeder(self, ui: dict, seconds: int):
+        """Start a new waveform feeder thread with pre-read UI values."""
+        import time as _time
+        self._feeder_generation += 1
+        self._waveform_feeder_running = True
+        self._apply_feeder_ui(ui)
+        now = _time.time()
+        current_remaining = max(0, self._shock_end_time - now)
+        self._shock_end_time = now + current_remaining + seconds
         try:
             self._window.after(0, lambda: self._window.waveform_panel.set_active(True))
-        except Exception as e:
-            if self._debug_mode:
-                self._log_to_console(f"波形面板激活失败: {type(e).__name__}: {e}", "debug")
+        except Exception:
+            pass
+        my_gen = self._feeder_generation
+        threading.Thread(target=self._waveform_feeder_thread, args=(my_gen,), daemon=True).start()
+
+    def _refresh_feeder(self, ui: dict, seconds: int):
+        """Update running feeder with new waveform data without stopping it.
+        Avoids the stop/start gap that causes the device queue to drain."""
+        import time as _time
+        self._feeder_generation += 1  # Old thread will exit on generation mismatch
+        self._apply_feeder_ui(ui)
+        # Extend shock end time for the new event
+        current_remaining = max(0, self._shock_end_time - _time.time())
+        self._shock_end_time = _time.time() + current_remaining + seconds
+        # Start new thread immediately — old thread exits within 0.5s (one sleep cycle)
+        try:
+            self._window.after(0, lambda: self._window.waveform_panel.set_active(True))
+        except Exception:
+            pass
         my_gen = self._feeder_generation
         threading.Thread(target=self._waveform_feeder_thread, args=(my_gen,), daemon=True).start()
 
     def _waveform_feeder_thread(self, generation: int):
         import time as _time
+        import gc
+        _tick_count = 0
+        _start_time = _time.time()
+        _max_runtime = 60  # Hard limit: feeder must stop after 60s regardless of events
         while self._waveform_feeder_running and self._feeder_generation == generation:
+            _tick_count += 1
+            if _tick_count % 60 == 0:  # Every ~30 seconds, force garbage collection
+                gc.collect()
             # Ensure panel stays active while feeder is running
             try:
                 self._window.after(0, lambda: self._window.waveform_panel.set_active(True))
@@ -411,6 +489,17 @@ class App:
                 self._window.after(0, lambda s=stats: self._window.settings_panel.update_stats(*s))
             except Exception:
                 pass
+            # Hard stop after max runtime — stop feeding, let device play out its queue naturally
+            if _time.time() - _start_time > _max_runtime:
+                self._waveform_feeder_running = False
+                if self._ws_client:
+                    self._ws_client.stop_waveform()
+                try:
+                    self._window.after(0, lambda: self._window.waveform_panel.set_active(False))
+                except Exception:
+                    pass
+                self._log_to_console(f"波形馈送已达最大时长{_max_runtime}秒，自动停止", "warning")
+                break
             _time.sleep(0.5)
 
     def get_stats(self) -> dict:
@@ -423,7 +512,8 @@ class App:
 
     def _on_log_line(self, line: str):
         if "[DGLABCheeseShocking]" in line:
-            pass
+            # Log that we detected VRChat event
+            self._log_to_console(f"[VRChat事件] {line[:60]}...", "info")
         elif "[ShockingManager]" in line:
             cleaned = self._clean_log_line(line)
             self._log_to_console(cleaned, "recv")
@@ -443,6 +533,20 @@ class App:
         return line
 
     def _log_to_console(self, text: str, tag: str = "info"):
+        # Rate limit: skip if too many same messages
+        import time as _time
+        now = _time.time()
+        key = f"{tag}:{text[:50]}"
+        if not hasattr(self, '_last_log_time'):
+            self._last_log_time = {}
+        # Clean up old entries if too many
+        if len(self._last_log_time) > 100:
+            cutoff = now - 60  # Remove entries older than 60s
+            self._last_log_time = {k: v for k, v in self._last_log_time.items() if v > cutoff}
+        last_time = self._last_log_time.get(key, 0)
+        if now - last_time < 0.5:  # Skip if same message within 0.5s
+            return
+        self._last_log_time[key] = now
         # Write to session log file (all tags except debug when debug is off)
         if self._log_file and (tag != "debug" or self._debug_mode):
             from datetime import datetime
@@ -450,6 +554,27 @@ class App:
             try:
                 self._log_file.write(f"[{ts}] {text}\n")
                 self._log_file.flush()
+                # Runtime truncation: keep last ~512KB if file exceeds 2MB
+                if not hasattr(self, '_log_write_count'):
+                    self._log_write_count = 0
+                self._log_write_count += 1
+                if self._log_write_count % 200 == 0:
+                    self._log_write_count = 0
+                    pos = self._log_file.tell()
+                    if pos > 2 * 1024 * 1024:
+                        self._log_file.close()
+                        import os as _os
+                        log_path = _os.path.join(
+                            _os.path.dirname(_os.path.abspath(__file__)),
+                            "latest_session.log"
+                        )
+                        with open(log_path, "r", encoding="utf-8") as old:
+                            old.seek(max(0, pos - 512 * 1024))
+                            old.readline()  # Skip partial line
+                            tail = old.read()
+                        self._log_file = open(log_path, "w", encoding="utf-8")
+                        self._log_file.write(tail)
+                        self._log_file.flush()
             except Exception:
                 pass
         if self._window:
@@ -510,8 +635,19 @@ class App:
             self._window.after(0, lambda p=is_paired, s=is_server_running: self._window.update_connection_status(p, s))
             if status == "paired":
                 self._window.after(0, self._start_waveform_monitor)
+                # Clear safety deques on fresh pair — stale entries would block new shocks
+                with self._safety_lock:
+                    self._shock_recent_events_log.clear()
+                    self._shock_recent_events_http.clear()
             elif status in ("connected", "disconnected"):
                 self._window.after(0, self._stop_waveform_monitor)
+                # Reset shock state on disconnect so stale end_time doesn't confuse logic
+                import time as _time
+                self._shock_end_time = 0
+                self._waveform_feeder_running = False
+                with self._safety_lock:
+                    self._shock_recent_events_log.clear()
+                    self._shock_recent_events_http.clear()
 
     def _on_qr_url(self, url: str):
         if self._window:
@@ -585,16 +721,17 @@ class App:
             b_config = self._settings.get("avatar_channel_b_config", {})
             self._avatar_manager.configure(a_params, mode_a, a_config, b_params, mode_b, b_config)
 
-            # 去重：同一地址只绑定一次，先绑定的通道优先
-            bound_paths = set()
+            # 去重：同一通道内同一地址只绑定一次，不同通道可共享同一地址
+            bound_a = set()
             for path in a_params:
-                if path not in bound_paths:
+                if path not in bound_a:
                     d.map(path, self._avatar_manager._channels["A"].on_osc)
-                    bound_paths.add(path)
+                    bound_a.add(path)
+            bound_b = set()
             for path in b_params:
-                if path not in bound_paths:
+                if path not in bound_b:
                     d.map(path, self._avatar_manager._channels["B"].on_osc)
-                    bound_paths.add(path)
+                    bound_b.add(path)
 
             self._avatar_manager._running = True
             self._avatar_manager._start_bg_tasks()
@@ -671,7 +808,7 @@ class App:
                 name_parts = []
                 if self._waveform_name_a:
                     name_parts.append(f"A:{self._waveform_name_a}")
-                if self._waveform_name_b and self._waveform_name_b != self._waveform_name_a:
+                if self._waveform_name_b:
                     name_parts.append(f"B:{self._waveform_name_b}")
                 if name_parts:
                     lines.append(" ".join(name_parts))
@@ -769,37 +906,40 @@ class App:
             return
         import time as _time
         now = _time.time()
-        # If shock is already playing, just extend the duration
+        # If shock is already playing, extend with safety cap
         if self._waveform_feeder_running and now < self._shock_end_time:
-            self._shock_end_time = now + seconds
+            current_remaining = self._shock_end_time - now
+            new_remaining = current_remaining + seconds
+            if new_remaining > SAFETY_MAX_TOTAL:
+                new_remaining = SAFETY_MAX_TOTAL
+            self._shock_end_time = now + new_remaining
             self._log_to_console(f"延长电击: +{seconds}秒 (剩余{int(self._shock_end_time - now)}秒)", "info")
             return
         # Debounce: ignore rapid repeated HTTP shocks when not playing
         if now - self._last_http_shock_time < 3:
             return
         self._last_http_shock_time = now
-        # Read UI values thread-safely
-        a_limit = self._read_ui(self._window.settings_panel.get_a_limit)
-        b_limit = self._read_ui(self._window.settings_panel.get_b_limit)
-        max_mode = self._read_ui(self._window.settings_panel.get_max_mode)
+
+        # Batch-read ALL UI values in ONE call
+        ui = self._read_shock_ui()
+        a_limit = ui.get('a_limit', 200)
+        b_limit = ui.get('b_limit', 200)
+        max_mode = ui.get('max_mode', False)
+        dual_ch = ui.get('dual_ch', False)
+        ui_mode = ui.get('mode', 'instant')
+        wf_mode = ui.get('wf_mode', 'library')
+
         if max_mode:
             a_limit = 200
             b_limit = 200
-        ui_mode = self._read_ui(self._window.settings_panel.get_mode)
-        wf_mode = self._read_ui(self._window.settings_panel.get_waveform_mode)
+        if dual_ch:
+            b_limit = a_limit
 
-        # Always apply safety limits
+        # Apply safety limits
         seconds, should_continue = self._apply_safety_limits(seconds, self._shock_recent_events_http, log_warning=False)
         if not should_continue:
             return
 
-        # Stop old feeder FIRST to prevent it from overwriting new data
-        self._waveform_feeder_running = False
-        self._feeder_generation += 1
-
-        dual_ch = self._read_ui(self._window.settings_panel.get_dual_channel)
-        if dual_ch:
-            b_limit = a_limit
         if max_mode:
             a_intensity = 200
             b_intensity = 200
@@ -809,20 +949,15 @@ class App:
             if dual_ch:
                 b_intensity = a_intensity
 
-        # Set strength + send new waveform — device replaces queue automatically
-        self._ws_client.force_strength(a_limit, b_limit)
-        # Wait for device to process strength command before sending pulse data
-        import time as _time
-        _time.sleep(0.5)
-
-        custom_wf = self._read_ui(self._window.settings_panel.get_custom_waveform) if wf_mode == "custom" else ""
+        # Generate waveforms
+        custom_wf = ui.get('custom_wf', '') if wf_mode == 'custom' else ''
         if max_mode:
             a_wave = _ramp_waveform(seconds, a_intensity)
             b_wave = _ramp_waveform(seconds, b_intensity)
             a_name = "拉满"
             b_name = "拉满"
         else:
-            alternate = self._read_ui(self._window.settings_panel.get_alternate_waveform)
+            alternate = ui.get('alternate', True)
             a_wave, b_wave, a_name, b_name = generate_ab_waveforms(
                 seconds, a_intensity, b_intensity, ui_mode, wf_mode, alternate=alternate,
                 custom_waveform=custom_wf,
@@ -830,17 +965,23 @@ class App:
         self._waveform_name_a = a_name
         self._waveform_name_b = b_name
 
-        # Store initial waveform for feeder to loop (keeps device playing same pattern)
+        # Seamless feeder transition
+        already_feeding = self._waveform_feeder_running
         self._feeder_initial_a = a_wave
         self._feeder_initial_b = b_wave
 
+        self._ws_client.force_strength(a_limit, b_limit)
         self._send_waveform("A", a_wave, seconds)
         self._send_waveform("B", b_wave, seconds)
 
         self._push_waveform_display(a_wave, b_wave, a_name, b_name, a_intensity, b_intensity)
-        self._start_waveform_feeder()
 
-        # Track stats - always both channels
+        if already_feeding:
+            self._refresh_feeder(ui, seconds)
+        else:
+            self._start_waveform_feeder(ui, seconds)
+
+        # Track stats
         with self._safety_lock:
             self._stats_a_seconds += seconds
             self._stats_b_seconds += seconds

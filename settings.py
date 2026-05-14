@@ -9,8 +9,8 @@ DEFAULT_SETTINGS = {
     "mode": "instant",
     "channel": "A",
     "waveform_mode": "library",
-    "poll_interval": 0.5,
-    "idle_check_interval": 5,
+    "poll_interval": 0.3,
+    "idle_check_interval": 10,
     "log_dir_override": "",
     "auto_connect": False,
     "osc_port": 9000,
@@ -83,7 +83,19 @@ class Settings:
         for key, value in DEFAULT_SETTINGS.items():
             if key not in self._data:
                 self._data[key] = value
+            elif isinstance(value, dict) and isinstance(self._data[key], dict):
+                self._data[key] = self._deep_merge(value, self._data[key])
         return self._data
+
+    @staticmethod
+    def _deep_merge(default: dict, saved: dict) -> dict:
+        result = dict(saved)
+        for key, value in default.items():
+            if key not in result:
+                result[key] = value
+            elif isinstance(value, dict) and isinstance(result[key], dict):
+                result[key] = Settings._deep_merge(value, result[key])
+        return result
 
     def save(self):
         dir_name = os.path.dirname(self._path)

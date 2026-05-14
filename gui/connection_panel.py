@@ -246,6 +246,8 @@ class ConnectionPanel(tk.Frame):
     def set_qr(self, url_or_image, client_id: str = ""):
         if hasattr(url_or_image, "size"):
             from PIL import ImageTk
+            if hasattr(self, '_qr_image') and self._qr_image:
+                del self._qr_image
             self._qr_original = url_or_image
             img = url_or_image.resize((self.QR_SIZE, self.QR_SIZE))
             self._qr_image = ImageTk.PhotoImage(img)
@@ -282,6 +284,8 @@ class ConnectionPanel(tk.Frame):
 
                 # Display on Canvas at fixed pixel size
                 display_img = img.resize((self.QR_SIZE, self.QR_SIZE))
+                if hasattr(self, '_qr_image') and self._qr_image:
+                    del self._qr_image
                 self._qr_image = ImageTk.PhotoImage(display_img)
                 self._qr_canvas.delete("all")
                 self._qr_canvas.create_image(
@@ -327,6 +331,8 @@ class ConnectionPanel(tk.Frame):
             img = Image.open(self._qr_path)
         if img:
             display = img.resize((size, size))
+            if hasattr(self, '_qr_full_image') and self._qr_full_image:
+                del self._qr_full_image
             self._qr_full_image = ImageTk.PhotoImage(display)
         else:
             self._qr_full_image = self._qr_image

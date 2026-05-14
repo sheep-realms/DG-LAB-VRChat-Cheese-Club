@@ -213,14 +213,7 @@ class MainWindow:
                 except Exception:
                     pass
             self._after_ids.clear()
-            # CRITICAL: disconnect WebSocket synchronously to release port
-            if self._app._ws_client:
-                try:
-                    self._app._ws_client.disconnect()
-                except Exception:
-                    pass
-                self._app._ws_client = None
-            # Run remaining cleanup in background (WebSocket already disconnected above)
+            # Run cleanup in background (including WebSocket disconnect — slow, don't block UI)
             def _cleanup():
                 try:
                     self._app._do_cleanup()
