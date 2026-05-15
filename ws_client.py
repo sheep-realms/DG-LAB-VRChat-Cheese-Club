@@ -292,6 +292,12 @@ class WSClient:
 
                 elif msg_type == "heartbeat":
                     self._on_message({"type": "debug", "text": "收到心跳"})
+                elif msg_type == "break":
+                    # DG-LAB App is requesting disconnect
+                    self._on_message({"type": "info", "text": "APP请求断开连接"})
+                    # Close the WebSocket connection so the app can complete its disconnect
+                    await ws.close()
+                    break
                 else:
                     self._on_message({"type": "debug", "text": f"未知消息类型: {msg_type} data={str(msg_data)[:80]}"})
 

@@ -101,6 +101,7 @@ class MainWindow:
         content.columnconfigure(0, weight=0, minsize=320)  # Left panel fixed
         content.columnconfigure(1, weight=0, minsize=320)  # Center panel fixed
         content.columnconfigure(2, weight=1)  # Right panel expands
+        content.rowconfigure(0, weight=1)  # Row expands vertically
 
         # Left column: Connection + OSC
         left_panel = tk.Frame(content, bg=t.get("bg_main", "#0a0e1a"))
@@ -117,9 +118,9 @@ class MainWindow:
             left_panel, theme=t,
             on_osc_toggle=self._app.on_osc_toggle,
         )
-        self.osc_panel.pack(fill="x")
+        self.osc_panel.pack(fill="both", expand=True)
 
-        # Center column: Settings + Mapping
+        # Center column: Settings
         center_panel = tk.Frame(content, bg=t.get("bg_main", "#0a0e1a"))
         center_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
 
@@ -129,7 +130,7 @@ class MainWindow:
             on_theme_toggle=self._app.on_theme_toggle,
             on_test_shock=self._app.on_test_shock,
         )
-        self.settings_panel.pack(fill="x", pady=(0, 8))
+        self.settings_panel.pack(fill="both", expand=True, pady=(0, 8))
 
         # Right column: Waveform + Console
         right_panel = tk.Frame(content, bg=t.get("bg_main", "#0a0e1a"))

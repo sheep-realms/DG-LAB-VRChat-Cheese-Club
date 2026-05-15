@@ -74,6 +74,16 @@ class ConnectionPanel(tk.Frame):
             highlightthickness=1,
         )
         self._port_entry.pack(side="left", padx=(8, 0))
+        self._port_entry.bind("<FocusOut>", self._validate_port)
+        self._port_entry.bind("<Return>", self._validate_port)
+
+        self._port_error_label = tk.Label(
+            port_frame, text="",
+            bg=t.get("bg_card", "#151d2b"),
+            fg=t.get("status_error", "#ef4444"),
+            font=(UI_XS),
+        )
+        self._port_error_label.pack(side="left", padx=(8, 0))
 
         # Buttons
         btn_frame = tk.Frame(container, bg=t.get("bg_card", "#151d2b"))
@@ -360,6 +370,27 @@ class ConnectionPanel(tk.Frame):
             self._qr_overlay.destroy()
             self._qr_overlay = None
         self._qr_full_image = None
+
+    def _validate_port(self, event=None):
+        """Validate port input and show error feedback."""
+        val = self._port_var.get().strip()
+        try:
+            port = int(val)
+            if port < 1 or port > 65535:
+                raise ValueError
+            # Valid — reset to normal style
+            self._port_entry.configure(
+                highlightbackground=self._theme.get("border_color", "#1e293b")
+            )
+            self._port_error_label.configure(text="")
+            return True
+        except ValueError:
+            # Invalid — show error
+            self._port_entry.configure(
+                highlightbackground=self._theme.get("status_error", "#ef4444")
+            )
+            self._port_error_label.configure(text="无效端口")
+            return False
 
     def get_port(self) -> int:
         try:
