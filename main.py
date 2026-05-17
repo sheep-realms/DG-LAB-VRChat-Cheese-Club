@@ -21,7 +21,8 @@ def _load_custom_font():
     if sys.platform != "win32":
         return
     if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
+        # PyInstaller 单文件模式：数据解压到 _MEIPASS 临时目录
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, "fonts", "MiSans-Normal.otf")
