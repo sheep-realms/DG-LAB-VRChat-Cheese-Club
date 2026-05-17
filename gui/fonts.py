@@ -1,37 +1,32 @@
-# Centralized font definitions - Professional typography system
+# Centralized font definitions — MiSans 字体
+# main.py 中已通过 AddFontResourceEx 注册 MiSans-Normal.otf
+
+# 字体族名称（OTF 内部注册名）
+FONT_FAMILY = "MiSans"
+MONO_FAMILY = "Cascadia Code"
 
 # Base multiplier for scaling
-BASE = 2
+BASE = 1
 
-# Primary UI font - Segoe UI for Windows 11 native feel
-UI_XS = ("Segoe UI", 7 * BASE)
-UI_S = ("Segoe UI", 8 * BASE)
-UI_S_B = ("Segoe UI", 8 * BASE, "bold")
-UI_M = ("Segoe UI", 9 * BASE)
-UI_M_B = ("Segoe UI", 9 * BASE, "bold")
-UI_L = ("Segoe UI", 11 * BASE)
-UI_L_B = ("Segoe UI", 11 * BASE, "bold")
-UI_XL = ("Segoe UI", 13 * BASE)
-UI_XL_B = ("Segoe UI", 13 * BASE, "bold")
-
-# Secondary font - Microsoft YaHei for Chinese characters
-YAHEI_XS = ("Microsoft YaHei UI", 7 * BASE)
-YAHEI_S = ("Microsoft YaHei UI", 8 * BASE)
-YAHEI_S_B = ("Microsoft YaHei UI", 8 * BASE, "bold")
-YAHEI_M = ("Microsoft YaHei UI", 9 * BASE)
-YAHEI_M_B = ("Microsoft YaHei UI", 9 * BASE, "bold")
-YAHEI_L = ("Microsoft YaHei UI", 11 * BASE)
-YAHEI_L_B = ("Microsoft YaHei UI", 11 * BASE, "bold")
-YAHEI_EMOJI = ("Segoe UI Emoji", 9 * BASE)
+# Primary UI font - MiSans
+UI_XS = (FONT_FAMILY, 11 * BASE)
+UI_S = (FONT_FAMILY, 12 * BASE)
+UI_S_B = (FONT_FAMILY, 12 * BASE, "bold")
+UI_M = (FONT_FAMILY, 13 * BASE)
+UI_M_B = (FONT_FAMILY, 13 * BASE, "bold")
+UI_L = (FONT_FAMILY, 15 * BASE)
+UI_L_B = (FONT_FAMILY, 15 * BASE, "bold")
+UI_XL = (FONT_FAMILY, 18 * BASE)
+UI_XL_B = (FONT_FAMILY, 18 * BASE, "bold")
 
 # Monospace fonts - For console and technical displays
-MONO_XS = ("Cascadia Code", 7 * BASE)
-MONO_S = ("Cascadia Code", 8 * BASE)
-MONO_S_B = ("Cascadia Code", 8 * BASE, "bold")
-MONO_M = ("Cascadia Code", 9 * BASE)
-MONO_M_B = ("Cascadia Code", 9 * BASE, "bold")
+MONO_XS = (MONO_FAMILY, 10 * BASE)
+MONO_S = (MONO_FAMILY, 11 * BASE)
+MONO_S_B = (MONO_FAMILY, 11 * BASE, "bold")
+MONO_M = (MONO_FAMILY, 13 * BASE)
+MONO_M_B = (MONO_FAMILY, 13 * BASE, "bold")
 
-# Legacy aliases for backward compatibility
+# Legacy aliases
 CONSOLAS_XS = MONO_XS
 CONSOLAS_S = MONO_S
 CONSOLAS_M = MONO_M

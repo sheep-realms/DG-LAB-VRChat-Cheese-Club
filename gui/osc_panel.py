@@ -33,12 +33,12 @@ class OSCPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             status_frame, text="OSC 状态:", text_color="#a1a1aa",
-            font=ctk.CTkFont(size=13)
+            font=ctk.CTkFont(family="MiSans", size=15)
         ).grid(row=0, column=0, padx=(12, 4), pady=10, sticky="w")
 
         self._status_label = ctk.CTkLabel(
             status_frame, text="未连接", text_color="#ef4444",
-            font=ctk.CTkFont(size=13, weight="bold")
+            font=ctk.CTkFont(family="MiSans", size=15, weight="bold")
         )
         self._status_label.grid(row=0, column=1, padx=4, pady=10, sticky="w")
 
@@ -52,7 +52,7 @@ class OSCPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             port_frame, text="Chatbox 端口:", text_color="#a1a1aa",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="MiSans", size=15)
         ).grid(row=0, column=0, padx=(12, 4), pady=(10, 4), sticky="w")
 
         self._chatbox_port_entry = ctk.CTkEntry(
@@ -64,12 +64,12 @@ class OSCPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             port_frame, text="Avatar 端口:", text_color="#a1a1aa",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="MiSans", size=15)
         ).grid(row=1, column=0, padx=(12, 4), pady=(4, 10), sticky="w")
 
         ctk.CTkLabel(
             port_frame, text="9001 (固定)", text_color="#71717a",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="MiSans", size=15)
         ).grid(row=1, column=1, padx=(4, 12), pady=(4, 10), sticky="w")
 
         # --- 通道模式区 ---
@@ -82,12 +82,12 @@ class OSCPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             mode_frame, text="通道 A 模式:", text_color="#34d399",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="MiSans", size=15)
         ).grid(row=0, column=0, padx=(12, 4), pady=(10, 4), sticky="w")
 
         self._mode_a_seg = ctk.CTkSegmentedButton(
             mode_frame, values=self.MODE_OPTIONS,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             selected_color="#d4a054", selected_hover_color="#b8893e",
             unselected_color="#161616", unselected_hover_color="#333333",
             text_color="#e4e4e7"
@@ -97,12 +97,12 @@ class OSCPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             mode_frame, text="通道 B 模式:", text_color="#fbbf24",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="MiSans", size=15)
         ).grid(row=1, column=0, padx=(12, 4), pady=(4, 10), sticky="w")
 
         self._mode_b_seg = ctk.CTkSegmentedButton(
             mode_frame, values=self.MODE_OPTIONS,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             selected_color="#d4a054", selected_hover_color="#b8893e",
             unselected_color="#161616", unselected_hover_color="#333333",
             text_color="#e4e4e7"
@@ -116,14 +116,14 @@ class OSCPanel(ctk.CTkFrame):
         btn_frame.grid_columnconfigure((0, 1), weight=1)
 
         self._connect_btn = ctk.CTkButton(
-            btn_frame, text="连接", font=ctk.CTkFont(size=13, weight="bold"),
+            btn_frame, text="连接", font=ctk.CTkFont(family="MiSans", size=15, weight="bold"),
             fg_color="#22c55e", hover_color="#16a34a", text_color="#e4e4e7",
             corner_radius=6, command=self._on_connect
         )
         self._connect_btn.grid(row=0, column=0, padx=(0, 4), pady=4, sticky="ew")
 
         self._disconnect_btn = ctk.CTkButton(
-            btn_frame, text="断开", font=ctk.CTkFont(size=13, weight="bold"),
+            btn_frame, text="断开", font=ctk.CTkFont(family="MiSans", size=15, weight="bold"),
             fg_color="#ef4444", hover_color="#dc2626", text_color="#e4e4e7",
             corner_radius=6, command=self._on_disconnect, state="disabled"
         )
@@ -139,12 +139,12 @@ class OSCPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             params_frame, text="接收参数", text_color="#a1a1aa",
-            font=ctk.CTkFont(size=12, weight="bold")
+            font=ctk.CTkFont(family="MiSans", size=17, weight="bold")
         ).grid(row=0, column=0, padx=12, pady=(8, 4), sticky="w")
 
         self._params_label = ctk.CTkLabel(
             params_frame, text="暂无数据", text_color="#71717a",
-            font=ctk.CTkFont(family="Consolas", size=11),
+            font=ctk.CTkFont(family="Cascadia Code", size=15),
             justify="left", anchor="w", width=280,
         )
         self._params_label.grid(row=1, column=0, padx=12, pady=(0, 8), sticky="w")

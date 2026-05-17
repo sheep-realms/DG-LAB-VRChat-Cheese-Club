@@ -15,11 +15,32 @@ if sys.platform == "win32":
         except Exception:
             pass
 
+# 加载自定义字体 (MiSans)
+def _load_custom_font():
+    """在 Windows 上临时注册 MiSans 字体供本进程使用。"""
+    if sys.platform != "win32":
+        return
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(base_dir, "fonts", "MiSans-Normal.otf")
+    if not os.path.exists(font_path):
+        return
+    try:
+        import ctypes
+        # FR_PRIVATE = 0x10 — 仅当前进程可见，不污染系统字体
+        ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
+    except Exception:
+        pass
+
+_load_custom_font()
+
 # Force matplotlib to use TkAgg backend before any matplotlib import
 os.environ["MPLBACKEND"] = "TkAgg"
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 import matplotlib
-matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei UI', 'SimHei', 'DejaVu Sans']
+matplotlib.rcParams['font.sans-serif'] = ['MiSans', 'Microsoft YaHei UI', 'SimHei', 'DejaVu Sans']
 matplotlib.rcParams['axes.unicode_minus'] = False
 import logging
 

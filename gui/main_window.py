@@ -23,6 +23,9 @@ from gui.custom_params_panel import CustomParamsPanel
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+# 全局默认字体 — MiSans（已在 main.py 中注册）
+CTK_FONT = "MiSans"
+
 
 class MainWindow:
     def __init__(self, app, theme: dict = None):
@@ -56,15 +59,15 @@ class MainWindow:
         header.pack_propagate(False)
 
         ctk.CTkLabel(header, text="芝士郊狼",
-                     font=ctk.CTkFont(size=15, weight="bold"),
+                     font=ctk.CTkFont(family=CTK_FONT, size=17, weight="bold"),
                      text_color="#e4e4e7").pack(side="left", padx=(16, 4))
         ctk.CTkLabel(header, text="控制中心",
-                     font=ctk.CTkFont(size=13),
+                     font=ctk.CTkFont(family=CTK_FONT, size=15),
                      text_color="#71717a").pack(side="left")
 
         self._connection_status = ctk.CTkLabel(
             header, text="○ 未连接",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family=CTK_FONT, size=15),
             text_color="#52525b")
         self._connection_status.pack(side="right", padx=16)
 
@@ -80,6 +83,8 @@ class MainWindow:
             border_width=0,
         )
         self._tabview.pack(fill="both", expand=True, padx=10, pady=(4, 10))
+        self._tabview._segmented_button.configure(
+            font=ctk.CTkFont(family=CTK_FONT, size=14))
 
         tab1 = self._tabview.add("主控制")
         tab2 = self._tabview.add("参数联动")
@@ -102,7 +107,7 @@ class MainWindow:
 
         # --- Tab 2: Params ---
         tab2.grid_columnconfigure(0, weight=2, minsize=300)
-        tab2.grid_columnconfigure(1, weight=3, minsize=400)
+        tab2.grid_columnconfigure(1, weight=3, minsize=410)
         tab2.grid_rowconfigure(0, weight=1)
 
         self.osc_panel = OSCPanel(tab2, theme=self._theme,

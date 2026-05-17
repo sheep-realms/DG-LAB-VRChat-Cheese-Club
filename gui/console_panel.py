@@ -39,12 +39,12 @@ class ConsolePanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header, text="日志", text_color="#e4e4e7",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=ctk.CTkFont(family="MiSans", size=17, weight="bold")
         ).grid(row=0, column=0, sticky="w")
 
         self._debug_btn = ctk.CTkButton(
             header, text="Debug", width=60,
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(family="MiSans", size=15),
             fg_color="#333333", hover_color="#3a3a4a",
             text_color="#a1a1aa", corner_radius=4,
             command=self._toggle_debug
@@ -53,7 +53,7 @@ class ConsolePanel(ctk.CTkFrame):
 
         self._clear_btn = ctk.CTkButton(
             header, text="清空", width=60,
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(family="MiSans", size=15),
             fg_color="#333333", hover_color="#3a3a4a",
             text_color="#a1a1aa", corner_radius=4,
             command=self._clear_log
@@ -63,7 +63,7 @@ class ConsolePanel(ctk.CTkFrame):
         # --- 日志文本框 ---
         self._textbox = ctk.CTkTextbox(
             self, fg_color="#0d0d0d", text_color="#e4e4e7",
-            font=ctk.CTkFont(family="Consolas", size=11),
+            font=ctk.CTkFont(family="Cascadia Code", size=14),
             border_color="#333333", border_width=1,
             corner_radius=6, wrap="word", state="disabled"
         )

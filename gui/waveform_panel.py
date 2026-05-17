@@ -147,7 +147,7 @@ class WaveformPanel(tk.Frame):
 
         # Bottom info
         self._info_label = tk.Label(
-            self, text="等待连接...", bg=t.get("bg_panel", "#1a1a2e"),
+            self, text="等待连接...", bg="#0f0f14",
             fg=self._theme.get("text_muted", "#666666"),
             font=(UI_S),
         )

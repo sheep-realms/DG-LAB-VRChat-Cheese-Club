@@ -56,7 +56,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ctk.CTkLabel(
             main_group, text="电击设置",
             text_color=self._TEXT_PRIMARY,
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(family="MiSans", size=17, weight="bold"),
         ).pack(anchor="w", padx=16, pady=(12, 8))
 
         # ── A 通道上限 ──
@@ -71,18 +71,18 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             strength_row, text="当前强度",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(side="left")
 
         self._a_label = ctk.CTkLabel(
             strength_row, text="A: 0",
-            text_color=self._CH_A, font=ctk.CTkFont(family="Consolas", size=12),
+            text_color=self._CH_A, font=ctk.CTkFont(family="Cascadia Code", size=15),
         )
         self._a_label.pack(side="left", padx=(8, 16))
 
         self._b_label = ctk.CTkLabel(
             strength_row, text="B: 0",
-            text_color=self._CH_B, font=ctk.CTkFont(family="Consolas", size=12),
+            text_color=self._CH_B, font=ctk.CTkFont(family="Cascadia Code", size=15),
         )
         self._b_label.pack(side="left")
 
@@ -92,7 +92,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             mode_row, text="模式",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(side="left", padx=(0, 8))
 
         self._mode_var = StringVar(value="一键开火")
@@ -103,7 +103,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             values=["一键开火", "温柔加力", "拉满"],
             variable=self._mode_var,
             command=self._on_mode_change,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             fg_color=self._BG_INPUT,
             selected_color=self._ACCENT,
             selected_hover_color="#9c7232",
@@ -119,7 +119,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             wf_row, text="波形",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(side="left", padx=(0, 8))
 
         self._wf_var = StringVar(value="波形库")
@@ -130,7 +130,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             values=["波形库", "自定义"],
             variable=self._wf_var,
             command=self._on_wf_mode_change,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             fg_color=self._BG_INPUT,
             selected_color=self._ACCENT,
             selected_hover_color="#9c7232",
@@ -146,7 +146,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             self._custom_wf_frame, text="选择波形",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(anchor="w")
 
         self._custom_wf_var = StringVar(value=self._wf_names[0] if self._wf_names else "")
@@ -161,7 +161,8 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             dropdown_fg_color=self._BG_INPUT,
             dropdown_hover_color=self._ACCENT,
             text_color=self._TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
+            dropdown_font=ctk.CTkFont(family="MiSans", size=14),
             corner_radius=6,
         )
         self._custom_wf_menu.pack(fill="x", pady=(4, 0))
@@ -173,7 +174,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             ch_row, text="通道",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(side="left", padx=(0, 8))
 
         self._channel_var = StringVar(value="A")
@@ -182,7 +183,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             values=["A", "B"],
             variable=self._channel_var,
             command=self._on_channel_change,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             fg_color=self._BG_INPUT,
             selected_color=self._ACCENT,
             selected_hover_color="#9c7232",
@@ -198,7 +199,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             ch_row, text="双通道",
             variable=self._dual_var,
             command=self._on_dual_toggle,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             text_color=self._TEXT_SECONDARY,
             progress_color=self._ACCENT,
             button_color=self._TEXT_DIM,
@@ -212,7 +213,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             ch_row, text="波形交替",
             variable=self._alternate_var,
             command=lambda: self._on_change(),
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             text_color=self._TEXT_SECONDARY,
             progress_color=self._ACCENT,
             button_color=self._TEXT_DIM,
@@ -225,7 +226,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         self._test_btn = ctk.CTkButton(
             main_group, text="测试电击 (3秒双通道)",
             command=self._on_test_shock,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=ctk.CTkFont(family="MiSans", size=15, weight="bold"),
             fg_color=self._ACCENT,
             hover_color="#9c7232",
             text_color="#ffffff",
@@ -240,13 +241,13 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ctk.CTkLabel(
             chatbox_group, text="Chatbox 设置",
             text_color=self._TEXT_PRIMARY,
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(family="MiSans", size=17, weight="bold"),
         ).pack(anchor="w", padx=16, pady=(12, 8))
 
         # Chatbox 自定义文本
         ctk.CTkLabel(
-            chatbox_group, text="Chatbox自定义",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            chatbox_group, text="ChatBox 自定义",
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(anchor="w", padx=16)
 
         self._chatbox_entry = ctk.CTkEntry(
@@ -254,15 +255,15 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             fg_color=self._BG_INPUT,
             border_color=self._BORDER,
             text_color=self._TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=14),
             corner_radius=6,
         )
         self._chatbox_entry.pack(fill="x", padx=16, pady=(4, 12))
 
         # Chatbox 显示行开关
         ctk.CTkLabel(
-            chatbox_group, text="Chatbox显示行",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            chatbox_group, text="ChatBox 显示行",
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(anchor="w", padx=16)
 
         toggles_row = ctk.CTkFrame(chatbox_group, fg_color="transparent")
@@ -270,21 +271,22 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         self._chatbox_toggles = {}
         toggle_labels = ["全部", "标题行", "强度行", "剩余秒数", "波形名", "自定义"]
-        for label in toggle_labels:
+        for i, label in enumerate(toggle_labels):
             var = BooleanVar(value=(label == "全部"))
             sw = ctk.CTkSwitch(
                 toggles_row, text=label,
                 variable=var,
                 command=self._on_change,
-                font=ctk.CTkFont(size=11),
+                font=ctk.CTkFont(family="MiSans", size=13),
                 text_color=self._TEXT_SECONDARY,
                 progress_color=self._ACCENT,
                 button_color=self._TEXT_DIM,
                 button_hover_color=self._TEXT_SECONDARY,
                 fg_color=self._BORDER,
-                width=40,
+                width=36,
             )
-            sw.pack(side="left", padx=(0, 12))
+            row, col = divmod(i, 3)
+            sw.grid(row=row, column=col, padx=(0, 12), pady=2, sticky="w")
             self._chatbox_toggles[label] = var
 
         # ── 统计组 ──
@@ -293,20 +295,20 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ctk.CTkLabel(
             stats_group, text="电击统计",
             text_color=self._TEXT_PRIMARY,
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(family="MiSans", size=17, weight="bold"),
         ).pack(anchor="w", padx=16, pady=(12, 8))
 
         self._stats_a_label = ctk.CTkLabel(
             stats_group, text="A: 0秒 | 强度x时间: 0",
             text_color=self._CH_A,
-            font=ctk.CTkFont(family="Consolas", size=12),
+            font=ctk.CTkFont(family="Cascadia Code", size=15),
         )
         self._stats_a_label.pack(anchor="w", padx=16, pady=(0, 4))
 
         self._stats_b_label = ctk.CTkLabel(
             stats_group, text="B: 0秒 | 强度x时间: 0",
             text_color=self._CH_B,
-            font=ctk.CTkFont(family="Consolas", size=12),
+            font=ctk.CTkFont(family="Cascadia Code", size=15),
         )
         self._stats_b_label.pack(anchor="w", padx=16, pady=(0, 12))
 
@@ -319,7 +321,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ctk.CTkLabel(
             safety_header, text="安全模式",
             text_color=self._TEXT_PRIMARY,
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(family="MiSans", size=17, weight="bold"),
         ).pack(side="left")
 
         self._safety_mode_var = BooleanVar(value=True)
@@ -327,7 +329,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             safety_header, text="启用",
             variable=self._safety_mode_var,
             command=lambda: self._on_change(),
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="MiSans", size=15),
             text_color=self._SUCCESS,
             progress_color=self._SUCCESS,
             button_color=self._TEXT_DIM,
@@ -338,7 +340,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             safety_group, text="限制累计电击时间的最高上限",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=11),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=14),
         ).pack(anchor="w", padx=16, pady=(0, 8))
 
         # 安全时长滑块
@@ -347,14 +349,14 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             dur_row, text="最大累计时长",
-            text_color=self._TEXT_DIM, font=ctk.CTkFont(size=12),
+            text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans", size=15),
         ).pack(side="left")
 
         self._safety_max_var = IntVar(value=15)
         self._safety_max_label = ctk.CTkLabel(
             dur_row, text="15秒",
             text_color=self._WARNING,
-            font=ctk.CTkFont(family="Consolas", size=14, weight="bold"),
+            font=ctk.CTkFont(family="Cascadia Code", size=15, weight="bold"),
         )
         self._safety_max_label.pack(side="right")
 
@@ -380,14 +382,14 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             row, text=label_text,
-            text_color=color, font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=color, font=ctk.CTkFont(family="MiSans", size=15, weight="bold"),
         ).pack(side="left")
 
         var = IntVar(value=200)
         value_label = ctk.CTkLabel(
             row, text="200",
             text_color=color,
-            font=ctk.CTkFont(family="Consolas", size=14, weight="bold"),
+            font=ctk.CTkFont(family="Cascadia Code", size=15, weight="bold"),
             width=40,
         )
         value_label.pack(side="right")
