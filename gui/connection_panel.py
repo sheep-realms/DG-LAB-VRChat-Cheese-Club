@@ -28,21 +28,21 @@ class ConnectionPanel(ctk.CTkFrame):
         card.pack(fill="both", expand=True, padx=4, pady=4)
 
         # Header
-        ctk.CTkLabel(card, text="连接管理", font=ctk.CTkFont(family="MiSans", size=17, weight="bold"),
+        ctk.CTkLabel(card, text="连接管理", font=ctk.CTkFont(family="MiSans Normal", size=17, weight="bold"),
                      text_color="#e4e4e7").pack(anchor="w", padx=16, pady=(16, 4))
 
         # Status
         status_frame = ctk.CTkFrame(card, fg_color="transparent")
         status_frame.pack(fill="x", padx=16, pady=(0, 8))
         self._status_label = ctk.CTkLabel(status_frame, text="● 未启动",
-                                          font=ctk.CTkFont(family="MiSans", size=15),
+                                          font=ctk.CTkFont(family="MiSans Normal", size=15),
                                           text_color="#52525b")
         self._status_label.pack(side="left")
 
         # Port
         port_frame = ctk.CTkFrame(card, fg_color="transparent")
         port_frame.pack(fill="x", padx=16, pady=(0, 10))
-        ctk.CTkLabel(port_frame, text="端口", font=ctk.CTkFont(family="MiSans", size=15),
+        ctk.CTkLabel(port_frame, text="端口", font=ctk.CTkFont(family="MiSans Normal", size=15),
                      text_color="#71717a").pack(side="left")
         self._port_var = ctk.StringVar(value="9999")
         self._port_entry = ctk.CTkEntry(port_frame, textvariable=self._port_var,
@@ -57,19 +57,19 @@ class ConnectionPanel(ctk.CTkFrame):
         self._start_btn = ctk.CTkButton(btn_frame, text="启动服务", width=100, height=32,
                                         corner_radius=6, fg_color="#22c55e",
                                         hover_color="#16a34a", text_color="#ffffff",
-                                        font=ctk.CTkFont(family="MiSans", size=15, weight="bold"),
+                                        font=ctk.CTkFont(family="MiSans Normal", size=15, weight="bold"),
                                         command=self._on_connect_click)
         self._start_btn.pack(side="left", padx=(0, 8))
 
         self._stop_btn = ctk.CTkButton(btn_frame, text="停止", width=70, height=32,
                                        corner_radius=6, fg_color="#ef4444",
                                        hover_color="#dc2626", text_color="#ffffff",
-                                       font=ctk.CTkFont(family="MiSans", size=15),
+                                       font=ctk.CTkFont(family="MiSans Normal", size=15),
                                        command=self._on_disconnect_click, state="disabled")
         self._stop_btn.pack(side="left")
 
         # QR section
-        ctk.CTkLabel(card, text="APP 扫码配对", font=ctk.CTkFont(family="MiSans", size=17),
+        ctk.CTkLabel(card, text="APP 扫码配对", font=ctk.CTkFont(family="MiSans Normal", size=17),
                      text_color="#71717a").pack(padx=16, anchor="w", pady=(0, 6))
 
         qr_border = ctk.CTkFrame(card, fg_color="#161616", corner_radius=6,
@@ -85,11 +85,11 @@ class ConnectionPanel(ctk.CTkFrame):
 
         self._zoom_btn = ctk.CTkButton(card, text="放大二维码", width=100, height=28,
                                        corner_radius=6, fg_color="#d4a054",
-                                       hover_color="#b8893e", font=ctk.CTkFont(family="MiSans", size=15),
+                                       hover_color="#b8893e", font=ctk.CTkFont(family="MiSans Normal", size=15),
                                        command=self._on_qr_click)
         self._zoom_btn.pack(pady=(0, 8))
 
-        self._id_label = ctk.CTkLabel(card, text="", font=ctk.CTkFont(family="MiSans", size=14),
+        self._id_label = ctk.CTkLabel(card, text="", font=ctk.CTkFont(family="MiSans Normal", size=14),
                                       text_color="#52525b")
         self._id_label.pack(padx=16, pady=(0, 12))
 

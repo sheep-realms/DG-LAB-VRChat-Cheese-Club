@@ -38,18 +38,18 @@ class CustomParamsPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header, text="自定义参数规则", text_color="#e4e4e7",
-            font=ctk.CTkFont(family="MiSans", size=17, weight="bold")
+            font=ctk.CTkFont(family="MiSans Normal", size=17, weight="bold")
         ).grid(row=0, column=0, sticky="w")
 
         self._count_label = ctk.CTkLabel(
             header, text="(0)", text_color="#71717a",
-            font=ctk.CTkFont(family="MiSans", size=15)
+            font=ctk.CTkFont(family="MiSans Normal", size=15)
         )
         self._count_label.grid(row=0, column=1, padx=(4, 8))
 
         self._add_btn = ctk.CTkButton(
             header, text="+ 新建", width=70,
-            font=ctk.CTkFont(family="MiSans", size=15),
+            font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="#d4a054", hover_color="#b8893e",
             text_color="#e4e4e7", corner_radius=4,
             command=self._show_form
@@ -59,7 +59,7 @@ class CustomParamsPanel(ctk.CTkFrame):
         # 导入/导出按钮
         self._export_btn = ctk.CTkButton(
             header, text="导出", width=50,
-            font=ctk.CTkFont(family="MiSans", size=15),
+            font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="#333333", hover_color="#2d2d2d",
             text_color="#a1a1aa", corner_radius=4,
             command=self._export_rules
@@ -68,7 +68,7 @@ class CustomParamsPanel(ctk.CTkFrame):
 
         self._import_btn = ctk.CTkButton(
             header, text="导入", width=50,
-            font=ctk.CTkFont(family="MiSans", size=15),
+            font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="#333333", hover_color="#2d2d2d",
             text_color="#a1a1aa", corner_radius=4,
             command=self._import_rules
@@ -103,7 +103,7 @@ class CustomParamsPanel(ctk.CTkFrame):
         path_row.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(path_row, text="OSC 路径:", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).grid(row=0, column=0, padx=(0, 4), sticky="w")
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).grid(row=0, column=0, padx=(0, 4), sticky="w")
         ctk.CTkLabel(path_row, text="/avatar/parameters/", text_color="#52525b",
                      font=ctk.CTkFont(family="Cascadia Code", size=14)).grid(row=0, column=1, sticky="w")
         self._form_path = ctk.CTkEntry(
@@ -115,10 +115,10 @@ class CustomParamsPanel(ctk.CTkFrame):
 
         # 通道
         ctk.CTkLabel(f, text="通道:", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).grid(
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).grid(
             row=1, column=0, padx=(12, 4), pady=4, sticky="w")
         self._form_channel = ctk.CTkSegmentedButton(
-            f, values=self.CHANNEL_OPTIONS, font=ctk.CTkFont(family="MiSans", size=14),
+            f, values=self.CHANNEL_OPTIONS, font=ctk.CTkFont(family="MiSans Normal", size=14),
             selected_color="#d4a054", selected_hover_color="#b8893e",
             unselected_color="#161616", unselected_hover_color="#333333",
             text_color="#e4e4e7"
@@ -128,10 +128,10 @@ class CustomParamsPanel(ctk.CTkFrame):
 
         # 模式
         ctk.CTkLabel(f, text="模式:", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).grid(
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).grid(
             row=2, column=0, padx=(12, 4), pady=4, sticky="w")
         self._form_mode = ctk.CTkSegmentedButton(
-            f, values=self.MODE_OPTIONS, font=ctk.CTkFont(family="MiSans", size=14),
+            f, values=self.MODE_OPTIONS, font=ctk.CTkFont(family="MiSans Normal", size=14),
             selected_color="#d4a054", selected_hover_color="#b8893e",
             unselected_color="#161616", unselected_hover_color="#333333",
             text_color="#e4e4e7", command=self._on_mode_change
@@ -147,7 +147,7 @@ class CustomParamsPanel(ctk.CTkFrame):
         }
         self._mode_desc_label = ctk.CTkLabel(
             f, text=self._MODE_DESCRIPTIONS["电击"],
-            text_color="#52525b", font=ctk.CTkFont(family="MiSans", size=12),
+            text_color="#52525b", font=ctk.CTkFont(family="MiSans Normal", size=12),
             anchor="w"
         )
         self._mode_desc_label.grid(row=3, column=0, columnspan=2, padx=(12, 12),
@@ -155,10 +155,10 @@ class CustomParamsPanel(ctk.CTkFrame):
 
         # 类型
         ctk.CTkLabel(f, text="类型:", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).grid(
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).grid(
             row=4, column=0, padx=(12, 4), pady=4, sticky="w")
         self._form_type = ctk.CTkSegmentedButton(
-            f, values=self.TYPE_OPTIONS, font=ctk.CTkFont(family="MiSans", size=14),
+            f, values=self.TYPE_OPTIONS, font=ctk.CTkFont(family="MiSans Normal", size=14),
             selected_color="#d4a054", selected_hover_color="#b8893e",
             unselected_color="#161616", unselected_hover_color="#333333",
             text_color="#e4e4e7", command=self._on_type_change
@@ -172,15 +172,15 @@ class CustomParamsPanel(ctk.CTkFrame):
         self._cond_frame.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(self._cond_frame, text="条件:", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).grid(
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).grid(
             row=0, column=0, padx=(0, 4), sticky="w")
 
         self._form_operator = ctk.CTkOptionMenu(
             self._cond_frame, values=self.OPERATOR_OPTIONS, width=70,
             fg_color="#161616", button_color="#333333",
             button_hover_color="#3a3a4a", text_color="#e4e4e7",
-            font=ctk.CTkFont(family="MiSans", size=14),
-            dropdown_font=ctk.CTkFont(family="MiSans", size=14),
+            font=ctk.CTkFont(family="MiSans Normal", size=14),
+            dropdown_font=ctk.CTkFont(family="MiSans Normal", size=14),
             dropdown_fg_color="#161616", dropdown_hover_color="#333333",
         )
         self._form_operator.set("==")
@@ -198,12 +198,12 @@ class CustomParamsPanel(ctk.CTkFrame):
         self._bool_frame.grid(row=5, column=0, columnspan=2, padx=12, pady=4, sticky="ew")
 
         ctk.CTkLabel(self._bool_frame, text="触发值:", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).pack(side="left", padx=(0, 8))
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).pack(side="left", padx=(0, 8))
         self._form_bool_var = ctk.StringVar(value="true")
         self._form_bool_seg = ctk.CTkSegmentedButton(
             self._bool_frame, values=["true", "false"],
             variable=self._form_bool_var,
-            font=ctk.CTkFont(family="MiSans", size=14),
+            font=ctk.CTkFont(family="MiSans Normal", size=14),
             selected_color="#d4a054", selected_hover_color="#b8893e",
             unselected_color="#161616", unselected_hover_color="#333333",
             text_color="#e4e4e7", width=120,
@@ -215,7 +215,7 @@ class CustomParamsPanel(ctk.CTkFrame):
 
         # 时长
         ctk.CTkLabel(f, text="时长(ms):", text_color="#a1a1aa",
-                     font=ctk.CTkFont(family="MiSans", size=15)).grid(
+                     font=ctk.CTkFont(family="MiSans Normal", size=15)).grid(
             row=6, column=0, padx=(12, 4), pady=4, sticky="w")
         self._form_duration = ctk.CTkEntry(
             f, width=100, fg_color="#161616",
@@ -231,14 +231,14 @@ class CustomParamsPanel(ctk.CTkFrame):
         form_btn_frame.grid_columnconfigure((0, 1), weight=1)
 
         ctk.CTkButton(
-            form_btn_frame, text="确认添加", font=ctk.CTkFont(family="MiSans", size=15),
+            form_btn_frame, text="确认添加", font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="#22c55e", hover_color="#16a34a",
             text_color="#e4e4e7", corner_radius=4,
             command=self._submit_form
         ).grid(row=0, column=0, padx=(0, 4), sticky="ew")
 
         ctk.CTkButton(
-            form_btn_frame, text="取消", font=ctk.CTkFont(family="MiSans", size=15),
+            form_btn_frame, text="取消", font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="#333333", hover_color="#3a3a4a",
             text_color="#a1a1aa", corner_radius=4,
             command=self._hide_form
@@ -429,13 +429,13 @@ class CustomParamsPanel(ctk.CTkFrame):
         )
         ctk.CTkLabel(
             card, text=cond_text, text_color="#71717a",
-            font=ctk.CTkFont(family="MiSans", size=12)
+            font=ctk.CTkFont(family="MiSans Normal", size=12)
         ).grid(row=1, column=1, padx=4, pady=(0, 8), sticky="w")
 
         # 编辑按钮
         ctk.CTkButton(
             card, text="编辑", width=28, height=28,
-            font=ctk.CTkFont(family="MiSans", size=15),
+            font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="transparent", hover_color="#d4a054",
             text_color="#71717a", corner_radius=4,
             command=lambda i=idx: self._edit_rule(i)
@@ -444,7 +444,7 @@ class CustomParamsPanel(ctk.CTkFrame):
         # 删除按钮
         ctk.CTkButton(
             card, text="✕", width=28, height=28,
-            font=ctk.CTkFont(family="MiSans", size=15),
+            font=ctk.CTkFont(family="MiSans Normal", size=15),
             fg_color="transparent", hover_color="#ef4444",
             text_color="#71717a", corner_radius=4,
             command=lambda i=idx: self._delete_rule(i)
@@ -540,7 +540,7 @@ class CustomParamsPanel(ctk.CTkFrame):
         color = "#ef4444" if error else "#22c55e"
         toast = ctk.CTkLabel(
             self, text=message, text_color=color,
-            font=ctk.CTkFont(family="MiSans", size=15), fg_color="#242424",
+            font=ctk.CTkFont(family="MiSans Normal", size=15), fg_color="#242424",
             corner_radius=4, height=24,
         )
         toast.grid(row=3, column=0, padx=8, pady=(0, 4), sticky="ew")

@@ -1,8 +1,6 @@
-# Centralized font definitions — MiSans 字体
-# main.py 中已通过 AddFontResourceEx 注册 MiSans-Normal.otf
 
-# 字体族名称（OTF 内部注册名）
-FONT_FAMILY = "MiSans"
+# 字体族名称（OTF 在 Windows 上注册的实际名称）
+FONT_FAMILY = "MiSans Normal"
 MONO_FAMILY = "Cascadia Code"
 
 # Base multiplier for scaling

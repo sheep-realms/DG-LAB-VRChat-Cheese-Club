@@ -23,8 +23,8 @@ from gui.custom_params_panel import CustomParamsPanel
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-# 全局默认字体 — MiSans（已在 main.py 中注册）
-CTK_FONT = "MiSans"
+# 全局默认字体 — MiSans Normal（OTF 在 Windows 上注册的实际族名）
+CTK_FONT = "MiSans Normal"
 
 
 class MainWindow:
