@@ -1,7 +1,7 @@
 """Centralized constants for DG-LAB VRChat Controller."""
 
 # Application
-APP_VERSION = "v2.0.0"
+APP_VERSION = "v2.0.1"
 APP_NAME = "芝士郊狼控制软件"
 
 # Default ports
