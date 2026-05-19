@@ -70,7 +70,7 @@ class App:
         self._osc_client = None
         self._chatbox_running = False
         self._closing = False
-        self._current_theme_name = self._settings.get("theme", "dark")
+        self._current_theme_name = "dark"
         self._shock_remaining_a = 0
         self._shock_remaining_b = 0
         self._shock_end_time = 0
@@ -94,6 +94,9 @@ class App:
         self._last_log_time_max = 200
         self._last_http_shock_time = 0
         self._http_server = HttpServer(port=self._settings.get("http_port", 8800))
+        self._current_qr_url = ""
+        self._custom_osc_rules = self._settings.get("custom_osc_rules", [])
+        self._custom_rule_cooldowns = {}  # path -> last trigger time (debounce)
 
     def _read_ui(self, func):
         """Thread-safe: read a UI value from a background thread.
@@ -354,6 +357,14 @@ class App:
         ui_mode = ui.get('mode', 'instant')
         wf_mode = ui.get('wf_mode', 'library')
 
+        # 自定义规则可覆盖模式
+        avatar_mode = event.get("avatar_mode")
+        if avatar_mode == "distance":
+            ui_mode = "gradual"  # 距离模式使用渐进波形
+        elif avatar_mode == "touch":
+            ui_mode = "instant"  # 触感模式使用瞬发波形
+        # avatar_mode == "shock" 保持 ui_mode 不变（默认 instant）
+
         # Apply safety limits — do NOT extend shock_end_time, let current shock finish naturally
         safety_max = ui.get('safety_max', 15) if ui.get('safety_mode', True) else SAFETY_MAX_TOTAL
         seconds, should_continue = self._apply_safety_limits(seconds, self._shock_recent_events_log, safety_max=safety_max)
@@ -431,9 +442,11 @@ class App:
         self._feeder_generation += 1
         self._waveform_feeder_running = True
         self._apply_feeder_ui(ui)
+        # _shock_end_time 已由 _apply_safety_limits 设置，此处不再重复计算
+        # 仅在 end_time 未被设置时（如测试电击等不经过 safety_limits 的路径）才设置
         now = _time.time()
-        current_remaining = max(0, self._shock_end_time - now)
-        self._shock_end_time = now + current_remaining + seconds
+        if self._shock_end_time <= now:
+            self._shock_end_time = now + seconds
         try:
             self._window.after(0, lambda: self._window.waveform_panel.set_active(True))
         except Exception:
@@ -447,9 +460,7 @@ class App:
         import time as _time
         self._feeder_generation += 1  # Old thread will exit on generation mismatch
         self._apply_feeder_ui(ui)
-        # Extend shock end time for the new event
-        current_remaining = max(0, self._shock_end_time - _time.time())
-        self._shock_end_time = _time.time() + current_remaining + seconds
+        # _shock_end_time 已由 _apply_safety_limits 设置，不再重复叠加
         # Start new thread immediately — old thread exits within 0.5s (one sleep cycle)
         try:
             self._window.after(0, lambda: self._window.waveform_panel.set_active(True))
@@ -600,10 +611,12 @@ class App:
                     if pos > 2 * 1024 * 1024:
                         self._log_file.close()
                         import os as _os
-                        log_path = _os.path.join(
-                            _os.path.dirname(_os.path.abspath(__file__)),
-                            "latest_session.log"
-                        )
+                        import sys as _sys
+                        if getattr(_sys, 'frozen', False):
+                            _base = _os.path.dirname(_sys.executable)
+                        else:
+                            _base = _os.path.dirname(_os.path.abspath(__file__))
+                        log_path = _os.path.join(_base, "latest_session.log")
                         with open(log_path, "r", encoding="utf-8") as old:
                             old.seek(max(0, pos - 512 * 1024))
                             old.readline()  # Skip partial line
@@ -616,21 +629,17 @@ class App:
         if self._window:
             self._window.after(0, lambda: self._window.console_panel.append(text, tag))
 
-    # --- Theme ---
+    # --- Theme (disabled — fixed dark) ---
     def on_theme_toggle(self):
-        self._current_theme_name = "light" if self._current_theme_name == "dark" else "dark"
-        self._settings.set("theme", self._current_theme_name)
-        self._settings.save()
-        theme = get_theme(self._current_theme_name)
-        self._window.after(0, lambda: self._apply_theme(theme))
+        pass
 
     def _apply_theme(self, theme: dict):
-        self._window.apply_theme(theme)
-        self._window.settings_panel.set_theme_button_text(self._current_theme_name)
+        pass
 
     # --- Connection (server mode) ---
     def on_connect(self):
         port = self._window.connection_panel.get_port()
+        selected_ip = self._window.connection_panel.get_selected_ip()
         self._ws_client = WSClient(
             port=port,
             on_status_change=self._on_ws_status,
@@ -639,10 +648,12 @@ class App:
             on_strength_update=self._on_strength_update,
             on_get_a_limit=lambda: self._window.settings_panel.get_a_limit(),
             on_get_b_limit=lambda: self._window.settings_panel.get_b_limit(),
+            display_ip=selected_ip,
         )
         self._ws_client.connect(host="0.0.0.0", port=port)
         from ws_client import _get_local_ip
-        self._log_to_console(f"启动WebSocket服务: {_get_local_ip()}:{port}", "info")
+        display_ip = selected_ip or _get_local_ip()
+        self._log_to_console(f"启动WebSocket服务: {display_ip}:{port}", "info")
 
     def on_disconnect(self):
         ws = self._ws_client
@@ -698,10 +709,34 @@ class App:
                     self._shock_recent_events_log.clear()
                     self._shock_recent_events_http.clear()
 
+    def _replace_qr_url_ip(self, url: str, ip: str) -> str:
+        if not url or not ip:
+            return url
+        import re
+        return re.sub(r"(ws://)([^:/#]+)(:\\d+/)", rf"\g<1>{ip}\g<3>", url, count=1)
+
+    def get_qr_ip_candidates(self):
+        from ws_client import get_local_ip_candidates
+        return get_local_ip_candidates()
+
+    def on_qr_ip_change(self, ip: str):
+        self._settings.set("qr_ip_override", ip)
+        self._settings.save()
+        if not self._current_qr_url or not self._window:
+            return
+        url = self._replace_qr_url_ip(self._current_qr_url, ip)
+        client_id = self._ws_client.client_id if self._ws_client else ""
+        self._window.connection_panel.set_qr(url, client_id)
+        if ip:
+            self._log_to_console(f"扫码 IP 已切换为: {ip}", "info")
+
     def _on_qr_url(self, url: str):
+        self._current_qr_url = url
         if self._window:
+            selected_ip = self._window.connection_panel.get_selected_ip()
+            display_url = self._replace_qr_url_ip(url, selected_ip) if selected_ip else url
             self._window.after(0, lambda: self._window.connection_panel.set_qr(
-                url, self._ws_client.client_id if self._ws_client else ""
+                display_url, self._ws_client.client_id if self._ws_client else ""
             ))
 
     def _on_ws_message(self, msg: dict):
@@ -721,6 +756,98 @@ class App:
             self._window.after(0, lambda: self._window.settings_panel.update_strength(
                 data.get("a_strength", 0), data.get("b_strength", 0)
             ))
+
+    # --- Custom OSC Rules ---
+    def on_custom_rules_change(self, rules: list):
+        """Called when user adds/removes/toggles custom OSC rules."""
+        self._settings.set("custom_osc_rules", rules)
+        self._settings.save()
+        self._custom_osc_rules = rules
+        self._log_to_console(f"自定义参数规则已更新 ({len(rules)} 条)", "info")
+        # Re-register OSC handlers if server is running
+        if self._osc_server and self._avatar_manager:
+            self._register_custom_rules()
+
+    def _register_custom_rules(self):
+        """Register custom OSC rules with the OSC dispatcher."""
+        if not self._osc_server:
+            return
+        rules = getattr(self, '_custom_osc_rules', [])
+        # We can't easily remove handlers from python-osc dispatcher,
+        # so we use the default handler to catch custom rule paths
+        self._log_to_console(f"已注册 {len([r for r in rules if r.get('enabled')])} 条自定义参数规则", "info")
+
+    def _check_custom_rule(self, rule: dict, value) -> bool:
+        """Check if an OSC value matches a custom rule's trigger condition."""
+        ptype = rule.get("type", "bool")
+        target = rule.get("value")
+        operator = rule.get("operator", "==")
+
+        if ptype == "bool":
+            if isinstance(value, bool):
+                return value == target
+            elif isinstance(value, (int, float)):
+                return (value != 0) == target
+            return False
+        elif ptype == "int":
+            try:
+                int_val = int(value) if not isinstance(value, bool) else (1 if value else 0)
+            except (ValueError, TypeError):
+                return False
+            return self._compare(int_val, operator, int(target))
+        elif ptype == "float":
+            try:
+                float_val = float(value) if not isinstance(value, bool) else (1.0 if value else 0.0)
+            except (ValueError, TypeError):
+                return False
+            return self._compare(float_val, operator, float(target))
+        return False
+
+    @staticmethod
+    def _compare(val, op: str, target) -> bool:
+        """Compare value against target using operator."""
+        if op == ">=":
+            return val >= target
+        elif op == "<=":
+            return val <= target
+        elif op == "==":
+            return val == target
+        elif op == ">":
+            return val > target
+        elif op == "<":
+            return val < target
+        return False
+
+    def _on_custom_rule_triggered(self, rule: dict):
+        """Trigger shock on the specified channel(s) when a custom rule matches."""
+        import time as _time
+        path = rule.get("path", "")
+        duration_ms = rule.get("duration", 1000)
+        duration_sec = max(1, duration_ms // 1000)  # 毫秒转秒，最少 1 秒
+        now = _time.time()
+
+        # Debounce: don't re-trigger same path within cooldown
+        cooldown = self._custom_rule_cooldowns.get(path, 0)
+        if now < cooldown:
+            return
+
+        # 如果当前正在电击中，跳过（不叠加时间）
+        if self._waveform_feeder_running and now < self._shock_end_time:
+            return
+
+        self._custom_rule_cooldowns[path] = now + duration_sec + 1
+
+        channel = rule.get("channel", "A")
+        rule_mode = rule.get("mode", "shock")
+        mode_labels = {"distance": "距离", "shock": "电击", "touch": "触感"}
+        mode_label = mode_labels.get(rule_mode, "电击")
+        self._log_to_console(
+            f"[参数联动] 触发: {path} → 通道{channel} {mode_label} {duration_sec}秒",
+            "shock",
+        )
+        event = {"mode": "instant", "seconds": duration_sec, "hand": channel,
+                 "avatar_mode": rule_mode}
+        self._on_shock_event(event)
 
     # --- VRChat OSC ---
     def on_osc_toggle(self, connected: bool):
@@ -871,11 +998,22 @@ class App:
             self._window.after(1000, self._send_chatbox_status)
 
     def _on_osc_message(self, address: str, *args):
-        """Default handler for unmatched OSC messages - display in params."""
+        """Default handler for unmatched OSC messages - display in params and check custom rules."""
         if self._window:
             params = {address: args[0] if len(args) == 1 else args}
             panel = self._window.osc_panel
             self._window.after(0, lambda p=params, pan=panel: pan.update_params(p))
+
+        # Check custom rules
+        rules = getattr(self, '_custom_osc_rules', [])
+        if rules and args:
+            value = args[0]
+            for rule in rules:
+                if not rule.get("enabled", True):
+                    continue
+                if rule.get("path") == address:
+                    if self._check_custom_rule(rule, value):
+                        self._on_custom_rule_triggered(rule)
 
     def _on_avatar_wave(self, channel: str, wave_hex):
         # Don't overwrite map-triggered waveform with avatar events
@@ -1058,6 +1196,8 @@ class App:
     def _load_settings_to_ui(self):
         s = self._settings
         self._window.connection_panel.set_port(s.get("port", 9999))
+        ips = self.get_qr_ip_candidates()
+        self._window.connection_panel.set_ip_options(ips, s.get("qr_ip_override", ""))
         self._window.settings_panel.set_a_limit(s.get("a_limit", 200))
         self._window.settings_panel.set_b_limit(s.get("b_limit", 200))
         self._window.settings_panel.set_mode(s.get("mode", "instant"))
@@ -1074,13 +1214,16 @@ class App:
         self._window.settings_panel.set_chatbox_enabled(s.get("chatbox_enabled", True))
         self._window.settings_panel.set_custom_chatbox(s.get("custom_chatbox", ""))
         self._window.settings_panel.set_chatbox_toggles(s.get("chatbox_toggles", {}))
-        self._window.settings_panel.set_theme_button_text(self._current_theme_name)
         self._window.settings_panel.set_safety_mode(s.get("safety_mode", True))
         self._window.settings_panel.set_safety_max_seconds(s.get("safety_max_seconds", 15))
+        # Load custom OSC rules
+        self._custom_osc_rules = s.get("custom_osc_rules", [])
+        self._window.custom_params_panel.set_rules(self._custom_osc_rules)
 
     def _save_settings_from_ui(self):
         s = self._settings
         s.set("port", self._window.connection_panel.get_port())
+        s.set("qr_ip_override", self._window.connection_panel.get_selected_ip())
         s.set("a_limit", self._window.settings_panel.get_a_limit())
         s.set("b_limit", self._window.settings_panel.get_b_limit())
         s.set("mode", self._window.settings_panel.get_mode())
@@ -1099,12 +1242,17 @@ class App:
         s.set("chatbox_toggles", self._window.settings_panel.get_chatbox_toggles())
         s.set("safety_mode", self._window.settings_panel.get_safety_mode())
         s.set("safety_max_seconds", self._window.settings_panel.get_safety_max_seconds())
+        s.set("custom_osc_rules", self._window.custom_params_panel.get_rules())
         s.save()
 
     def _save_session_stats(self):
         import time as _time
         import json
-        import os
+        import os, sys
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
         stats = {
             "last_session": _time.strftime("%Y-%m-%d %H:%M:%S"),
             "a_seconds": self._stats_a_seconds,
@@ -1112,7 +1260,7 @@ class App:
             "a_intensity_time": self._stats_a_intensity_time,
             "b_intensity_time": self._stats_b_intensity_time,
         }
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "session_stats.json")
+        path = os.path.join(base_dir, "session_stats.json")
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(stats, f, indent=2, ensure_ascii=False)
@@ -1121,8 +1269,12 @@ class App:
 
     def _load_session_stats(self):
         import json
-        import os
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "session_stats.json")
+        import os, sys
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base_dir, "session_stats.json")
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:

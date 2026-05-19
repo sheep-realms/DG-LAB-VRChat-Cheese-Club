@@ -21,6 +21,7 @@ DEFAULT_SETTINGS = {
     "custom_waveform": "",
     "chatbox_toggles": {"line1": True, "line2": True, "line3": True, "line4": True, "line5": True},
     "http_port": 8800,
+    "qr_ip_override": "",
     # Avatar OSC settings (compatible with Shocking-VRChat)
     "avatar_osc_port": 9001,
     "avatar_osc_host": "127.0.0.1",
@@ -62,13 +63,23 @@ DEFAULT_SETTINGS = {
             ],
         },
     },
+    # 自定义参数联动规则
+    # 每条规则: {"path": str, "channel": "A"|"B"|"AB", "mode": "distance"|"shock"|"touch",
+    #            "type": "bool"|"int"|"float", "value": any, "enabled": bool, "duration": int}
+    "custom_osc_rules": [],
 }
 
 
 class Settings:
     def __init__(self, path: str = None):
         if path is None:
-            path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+
+            import sys
+            if getattr(sys, 'frozen', False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            path = os.path.join(base_dir, "settings.json")
         self._path = path
         self._data: dict = {}
         self.load()

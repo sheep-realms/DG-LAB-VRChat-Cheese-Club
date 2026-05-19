@@ -15,11 +15,43 @@ if sys.platform == "win32":
         except Exception:
             pass
 
+# 加载自定义字体 (MiSans)
+FONT_FAMILY_REGISTERED = "MiSans Normal"
+
+
+def _get_font_dir():
+    """获取字体目录路径。"""
+    if getattr(sys, 'frozen', False):
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, "fonts")
+
+
+def _load_custom_font():
+    """在 Windows 上注册 MiSans 字体供本进程使用（GDI 层面）。
+    必须在 Tk 初始化之前调用，这样 Tk 创建字体时能通过 CreateFont 找到它。
+    """
+    if sys.platform != "win32":
+        return
+    font_path = os.path.join(_get_font_dir(), "MiSans-Normal.otf")
+    if not os.path.exists(font_path):
+        return
+    try:
+        import ctypes
+        gdi32 = ctypes.windll.gdi32
+        # FR_PRIVATE = 0x10 — 仅当前进程可见，进程退出自动移除，不污染系统
+        gdi32.AddFontResourceExW(font_path, 0x10, 0)
+    except Exception:
+        pass
+
+_load_custom_font()
+
 # Force matplotlib to use TkAgg backend before any matplotlib import
 os.environ["MPLBACKEND"] = "TkAgg"
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 import matplotlib
-matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei UI', 'SimHei', 'DejaVu Sans']
+matplotlib.rcParams['font.sans-serif'] = ['MiSans Normal', 'MiSans', 'Microsoft YaHei UI', 'SimHei', 'DejaVu Sans']
 matplotlib.rcParams['axes.unicode_minus'] = False
 import logging
 

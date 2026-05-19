@@ -5,30 +5,57 @@ import uuid
 import threading
 import logging
 import socket
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional, Dict, List
 
 logger = logging.getLogger(__name__)
 
 import websockets  # noqa: E402  — imported at module level for PyInstaller
 
 
-def _get_local_ip() -> str:
-    """Get the LAN IP address that phones can reach."""
+def _ip_priority(ip: str) -> tuple:
+    """Sort LAN addresses before VPN/virtual-looking addresses."""
+    if ip.startswith("192.168."):
+        return (0, ip)
+    if ip.startswith("10."):
+        return (1, ip)
+    try:
+        second = int(ip.split(".")[1])
+        if ip.startswith("172.") and 16 <= second <= 31:
+            return (2, ip)
+    except (IndexError, ValueError):
+        pass
+    return (3, ip)
+
+
+def get_local_ip_candidates() -> List[str]:
+    """Get non-loopback IPv4 addresses that may be reachable by phones."""
+    candidates = set()
     try:
         hostname = socket.gethostname()
-        ips = socket.gethostbyname_ex(hostname)[2]
-        for ip in ips:
-            if ip.startswith("192.168."):
-                return ip
-        for ip in ips:
-            if ip.startswith("10."):
-                return ip
-        for ip in ips:
-            if ip != "127.0.0.1":
-                return ip
-        return "127.0.0.1"
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if ip and not ip.startswith("127.") and "." in ip:
+                candidates.add(ip)
     except Exception:
-        return "127.0.0.1"
+        pass
+
+    # UDP connect does not send packets; it asks OS which local IP would be used.
+    for target in ("8.8.8.8", "1.1.1.1"):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect((target, 80))
+                ip = s.getsockname()[0]
+                if ip and not ip.startswith("127."):
+                    candidates.add(ip)
+        except Exception:
+            pass
+
+    return sorted(candidates, key=_ip_priority)
+
+
+def _get_local_ip() -> str:
+    """Get the preferred LAN IP address that phones can reach."""
+    candidates = get_local_ip_candidates()
+    return candidates[0] if candidates else "127.0.0.1"
 
 
 def _make_msg(msg_type: str, client_id: str = "", target_id: str = "", message: str = "") -> str:
@@ -53,9 +80,11 @@ class WSClient:
         on_strength_update: Callable[[dict], None] = None,
         on_get_a_limit: Callable[[], int] = None,
         on_get_b_limit: Callable[[], int] = None,
+        display_ip: str = "",
     ):
         self._host = host
         self._port = port
+        self._display_ip = display_ip.strip() if display_ip else ""
         self._on_status = on_status_change or (lambda s: None)
         self._on_qr = on_qr_url or (lambda u: None)
         self._on_message = on_message or (lambda m: None)
@@ -153,7 +182,7 @@ class WSClient:
 
         try:
             import socket as _sock
-            local_ip = _get_local_ip()
+            local_ip = self._display_ip or _get_local_ip()
             qr_url = (
                 f"https://www.dungeon-lab.com/app-download.php"
                 f"#DGLAB-SOCKET"
