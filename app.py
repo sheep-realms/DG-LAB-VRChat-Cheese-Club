@@ -713,11 +713,16 @@ class App:
         if not url or not ip:
             return url
         import re
-        return re.sub(r"(ws://)([^:/#]+)(:\\d+/)", rf"\g<1>{ip}\g<3>", url, count=1)
+        new_url = re.sub(r"(ws://)([^:/#]+)(:\d+/)", rf"\g<1>{ip}\g<3>", url, count=1)
+        if new_url == url:
+            self._log_to_console(f"二维码 IP 替换失败，原始链接格式未匹配: {url}", "warning")
+        return new_url
 
     def get_qr_ip_candidates(self):
         from ws_client import get_local_ip_candidates
-        return get_local_ip_candidates()
+        return get_local_ip_candidates(
+            log_callback=lambda text, level="info": self._log_to_console(text, level)
+        )
 
     def on_qr_ip_change(self, ip: str):
         self._settings.set("qr_ip_override", ip)

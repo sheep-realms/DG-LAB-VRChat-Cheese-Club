@@ -23,7 +23,9 @@ class ConnectionPanel(ctk.CTkFrame):
         self._qr_enlarged = False
         self._qr_full_image = None
         self._ip_var = ctk.StringVar(value="")
+        self._custom_ip_var = ctk.StringVar(value="")
         self._ip_options = []
+        self._custom_ip_trace = None
         self._build()
 
     def _build(self):
@@ -107,6 +109,19 @@ class ConnectionPanel(ctk.CTkFrame):
             command=self.refresh_ip_options)
         self._refresh_ip_btn.pack(side="left", padx=(8, 0))
 
+        custom_ip_frame = ctk.CTkFrame(card, fg_color="transparent")
+        custom_ip_frame.pack(fill="x", padx=16, pady=(0, 8))
+        ctk.CTkLabel(custom_ip_frame, text="自定义", font=ctk.CTkFont(family="MiSans Normal", size=14),
+                     text_color="#71717a").pack(side="left", padx=(0, 8))
+        self._custom_ip_entry = ctk.CTkEntry(
+            custom_ip_frame, textvariable=self._custom_ip_var, height=30, corner_radius=6,
+            placeholder_text="输入手机可访问的 IP", fg_color="#161616",
+            border_color="#333333", text_color="#e4e4e7",
+            font=ctk.CTkFont(family="MiSans Normal", size=14))
+        self._custom_ip_entry.pack(side="left", fill="x", expand=True)
+        self._custom_ip_entry.configure(state="disabled")
+        self._custom_ip_trace = self._custom_ip_var.trace_add("write", self._on_custom_ip_changed)
+
         self._zoom_btn = ctk.CTkButton(card, text="放大二维码", width=100, height=28,
                                        corner_radius=6, fg_color="#d4a054",
                                        hover_color="#b8893e", font=ctk.CTkFont(family="MiSans Normal", size=15),
@@ -132,10 +147,19 @@ class ConnectionPanel(ctk.CTkFrame):
     # === Public API ===
 
     def _on_ip_selected(self, value: str):
-        ip = value.strip()
-        if ip == "自动":
-            ip = ""
+        value = value.strip()
+        if value == "自定义...":
+            self._custom_ip_entry.configure(state="normal")
+            self._custom_ip_entry.focus_set()
+            self._on_ip_change(self._custom_ip_var.get().strip())
+            return
+        self._custom_ip_entry.configure(state="disabled")
+        ip = "" if value == "自动" else value
         self._on_ip_change(ip)
+
+    def _on_custom_ip_changed(self, *_):
+        if self._ip_var.get().strip() == "自定义...":
+            self._on_ip_change(self._custom_ip_var.get().strip())
 
     def refresh_ip_options(self):
         selected = self.get_selected_ip()
@@ -148,17 +172,26 @@ class ConnectionPanel(ctk.CTkFrame):
             if ip and ip not in unique_ips:
                 unique_ips.append(ip)
         self._ip_options = unique_ips
-        values = unique_ips or ["自动"]
+        values = unique_ips + ["自定义..."] if unique_ips else ["自动", "自定义..."]
         self._ip_menu.configure(values=values)
         if selected_ip and selected_ip in unique_ips:
             self._ip_var.set(selected_ip)
+            self._custom_ip_entry.configure(state="disabled")
+        elif selected_ip:
+            self._custom_ip_var.set(selected_ip)
+            self._ip_var.set("自定义...")
+            self._custom_ip_entry.configure(state="normal")
         elif unique_ips:
             self._ip_var.set(unique_ips[0])
+            self._custom_ip_entry.configure(state="disabled")
         else:
             self._ip_var.set("自动")
+            self._custom_ip_entry.configure(state="disabled")
 
     def get_selected_ip(self) -> str:
         ip = self._ip_var.get().strip()
+        if ip == "自定义...":
+            return self._custom_ip_var.get().strip()
         return "" if ip == "自动" else ip
 
     def set_status(self, status: str):

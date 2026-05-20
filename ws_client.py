@@ -27,29 +27,56 @@ def _ip_priority(ip: str) -> tuple:
     return (3, ip)
 
 
-def get_local_ip_candidates() -> List[str]:
-    """Get non-loopback IPv4 addresses that may be reachable by phones."""
-    candidates = set()
-    try:
-        hostname = socket.gethostname()
-        for ip in socket.gethostbyname_ex(hostname)[2]:
-            if ip and not ip.startswith("127.") and "." in ip:
-                candidates.add(ip)
-    except Exception:
-        pass
+def get_local_ip_candidates(log_callback: Callable[[str, str], None] = None) -> List[str]:
+    """
+    IP探测
+    """
+    def emit(text: str, level: str = "info"):
+        if level == "debug":
+            logger.debug(text)
+        elif level == "warning":
+            logger.warning(text)
+        else:
+            logger.info(text)
+        if log_callback:
+            try:
+                log_callback(text, level)
+            except Exception:
+                pass
 
-    # UDP connect does not send packets; it asks OS which local IP would be used.
-    for target in ("8.8.8.8", "1.1.1.1"):
+    route_ips = []
+    candidates = set()
+
+    # 223.5.5.5
+    for target in ("223.5.5.5", "8.8.8.8", "1.1.1.1"):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.connect((target, 80))
                 ip = s.getsockname()[0]
                 if ip and not ip.startswith("127."):
-                    candidates.add(ip)
-        except Exception:
-            pass
+                    emit(f"IP探测: 默认路由 {target}:80 -> {ip}", "info")
+                    if ip not in route_ips:
+                        route_ips.append(ip)
+                        candidates.add(ip)
+                else:
+                    emit(f"IP探测: 默认路由 {target}:80 返回无效地址 {ip}", "debug")
+        except Exception as e:
+            emit(f"IP探测: 默认路由 {target}:80 失败: {type(e).__name__}: {e}", "debug")
 
-    return sorted(candidates, key=_ip_priority)
+    try:
+        hostname = socket.gethostname()
+        hostname_ips = socket.gethostbyname_ex(hostname)[2]
+        emit(f"IP探测: 主机名 {hostname} 枚举到 {hostname_ips}", "info")
+        for ip in hostname_ips:
+            if ip and not ip.startswith("127.") and "." in ip:
+                candidates.add(ip)
+    except Exception as e:
+        emit(f"IP探测: 主机名枚举失败: {type(e).__name__}: {e}", "debug")
+
+    remaining = sorted((ip for ip in candidates if ip not in route_ips), key=_ip_priority)
+    result = route_ips + remaining
+    emit(f"IP探测: 最终候选顺序 {result or ['127.0.0.1']}", "info")
+    return result
 
 
 def _get_local_ip() -> str:
