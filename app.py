@@ -997,7 +997,7 @@ class App:
             if toggles.get("line5", True) and custom_line:
                 lines.append(custom_line)
             # Footer: QQ + version (always show)
-            lines.append(f"QQ群:757992539 | {APP_VERSION}")
+            lines.append(f"QQ群:102872939 | {APP_VERSION}")
             self._send_chatbox("\n".join(lines))
         if self._chatbox_running:
             self._window.after(1000, self._send_chatbox_status)

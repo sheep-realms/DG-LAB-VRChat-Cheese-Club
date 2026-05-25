@@ -337,7 +337,7 @@ draw.text((220, H - 24), "v1.2.5", fill=TEXT_DIM, font=font_tech)
 draw.text((300, H - 24), "//", fill=BORDER, font=font_tech)
 draw.text((324, H - 24), "VRChat + DG-LAB", fill=TEXT_DIM, font=font_tech)
 draw.text((500, H - 24), "//", fill=BORDER, font=font_tech)
-draw.text((524, H - 24), "QQ: 757992539", fill=TEXT_DIM, font=font_tech)
+draw.text((524, H - 24), "QQ: 102872939", fill=TEXT_DIM, font=font_tech)
 draw.ellipse([W - 170, H - 22, W - 162, H - 14], fill=GREEN)
 draw.text((W - 154, H - 24), "ALL SYSTEMS NOMINAL", fill=GREEN, font=font_tech)
 
