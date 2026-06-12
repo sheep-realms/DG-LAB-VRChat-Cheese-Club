@@ -977,7 +977,7 @@ class App:
             lines = []
             # Line 1: Title
             if toggles.get("line1", True):
-                lines.append("[芝士郊狼台球后援会]")
+                lines.append("[DG-LAB]")
             # Line 2: Strength
             if toggles.get("line2", True):
                 lines.append(f"A: {a_cur} | B: {b_cur}")
@@ -997,7 +997,7 @@ class App:
             if toggles.get("line5", True) and custom_line:
                 lines.append(custom_line)
             # Footer: QQ + version (always show)
-            lines.append(f"QQ群:102872939 | {APP_VERSION}")
+            lines.append(f"{APP_VERSION}")
             self._send_chatbox("\n".join(lines))
         if self._chatbox_running:
             self._window.after(1000, self._send_chatbox_status)

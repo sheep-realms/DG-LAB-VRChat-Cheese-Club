@@ -1,8 +1,8 @@
 """Centralized constants for DG-LAB VRChat Controller."""
 
 # Application
-APP_VERSION = "v2.0.3"
-APP_NAME = "芝士郊狼控制软件"
+APP_VERSION = "v26.1.0-upsteam-2.0.3"
+APP_NAME = "DG-LAB_VRChat_Controller"
 
 # Default ports
 DEFAULT_WS_PORT = 9999

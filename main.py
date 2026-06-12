@@ -68,7 +68,7 @@ def _kill_old_instances():
     my_pid = str(os.getpid())
     try:
         result = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq 芝士郊狼控制软件*.exe", "/FO", "CSV"],
+            ["tasklist", "/FI", 'IMAGENAME eq DG-LAB_VRChat_Controller*.exe', "/FO", "CSV"],
             capture_output=True, text=True, timeout=5,
         )
         for line in result.stdout.strip().split("\n")[1:]:
