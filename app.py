@@ -1,6 +1,9 @@
 import logging
 import threading
 import collections
+from locale import (
+    initTranslator, tr
+)
 from settings import Settings
 from themes import get_theme
 from log_monitor import LogMonitor
@@ -97,6 +100,8 @@ class App:
         self._current_qr_url = ""
         self._custom_osc_rules = self._settings.get("custom_osc_rules", [])
         self._custom_rule_cooldowns = {}  # path -> last trigger time (debounce)
+        self._tr = tr
+        initTranslator(self._settings.get("language", "zho-Hans"))
 
     def _read_ui(self, func):
         """Thread-safe: read a UI value from a background thread.

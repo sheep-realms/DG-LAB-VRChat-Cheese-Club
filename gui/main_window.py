@@ -19,6 +19,7 @@ from gui.console_panel import ConsolePanel
 from gui.waveform_panel import WaveformPanel
 from gui.osc_panel import OSCPanel
 from gui.custom_params_panel import CustomParamsPanel
+from locale import tr
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -58,15 +59,15 @@ class MainWindow:
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        ctk.CTkLabel(header, text="芝士郊狼",
+        ctk.CTkLabel(header, text=tr('main_window.title'),
                      font=ctk.CTkFont(family=CTK_FONT, size=17, weight="bold"),
                      text_color="#e4e4e7").pack(side="left", padx=(16, 4))
-        ctk.CTkLabel(header, text="控制中心",
+        ctk.CTkLabel(header, text=tr('main_window.subtitle'),
                      font=ctk.CTkFont(family=CTK_FONT, size=15),
                      text_color="#71717a").pack(side="left")
 
         self._connection_status = ctk.CTkLabel(
-            header, text="○ 未连接",
+            header, text=tr('connection_status.offline'),
             font=ctk.CTkFont(family=CTK_FONT, size=15),
             text_color="#52525b")
         self._connection_status.pack(side="right", padx=16)
@@ -86,9 +87,9 @@ class MainWindow:
         self._tabview._segmented_button.configure(
             font=ctk.CTkFont(family=CTK_FONT, size=14))
 
-        tab1 = self._tabview.add("主控制")
-        tab2 = self._tabview.add("参数联动")
-        tab3 = self._tabview.add("监控")
+        tab1 = self._tabview.add(tr('tabview_title.main'))
+        tab2 = self._tabview.add(tr('tabview_title.osc'))
+        tab3 = self._tabview.add(tr('tabview_title.monitor'))
 
         # --- Tab 1: Control ---
         tab1.grid_columnconfigure(0, weight=2)
@@ -135,14 +136,14 @@ class MainWindow:
 
     def update_connection_status(self, paired: bool, server_running: bool = False):
         if paired:
-            self._connection_status.configure(text="● 已配对", text_color="#22c55e")
-            self._root.title(f"{APP_NAME} - 已配对")
+            self._connection_status.configure(text=tr('connection_status.online'), text_color="#22c55e")
+            self._root.title(tr('window_title.online', app_name = APP_NAME))
         elif server_running:
-            self._connection_status.configure(text="◌ 等待连接", text_color="#f59e0b")
-            self._root.title(f"{APP_NAME} - 等待连接")
+            self._connection_status.configure(text=tr('connection_status.listen'), text_color="#f59e0b")
+            self._root.title(tr('window_title.listen', app_name = APP_NAME))
         else:
-            self._connection_status.configure(text="○ 未连接", text_color="#52525b")
-            self._root.title(f"{APP_NAME}")
+            self._connection_status.configure(text=tr('connection_status.offline'), text_color="#52525b")
+            self._root.title(tr('window_title.offline', app_name = APP_NAME))
 
     def apply_theme(self, theme: dict):
         """No-op: 固定暗色主题，无需切换。"""

@@ -1,7 +1,13 @@
 import customtkinter as ctk
 from tkinter import StringVar, IntVar, BooleanVar
 from waveform_library import get_names
+from locale import tr
 
+OUPUT_MODE_GRADUAL = tr('pannel.settings_input.output_mode.gradual')
+OUPUT_MODE_INTTANT = tr('pannel.settings_input.mooutput_modede.instant')
+OUPUT_MODE_MAX = tr('pannel.settings_input.output_mode.max')
+WAVE_MODE_LIBRARY = tr('pannel.settings_input.wave_mode.library')
+WAVE_MODE_CUSTOM = tr('pannel.settings_input.wave_mode.custom')
 
 class SettingsPanel(ctk.CTkScrollableFrame):
     """电击设置面板 - CustomTkinter 重写版"""
@@ -54,34 +60,34 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         # 标题
         ctk.CTkLabel(
-            main_group, text="电击设置",
+            main_group, text=tr('pannel.settings_input.title'),
             text_color=self._TEXT_PRIMARY,
             font=ctk.CTkFont(family="MiSans Normal", size=17, weight="bold"),
         ).pack(anchor="w", padx=16, pady=(12, 8))
 
         # ── A 通道上限 ──
-        self._build_limit_slider(main_group, "A上限", self._CH_A, is_a=True)
+        self._build_limit_slider(main_group, tr('pannel.settings_input.strength_max.a'), self._CH_A, is_a=True)
 
         # ── B 通道上限 ──
-        self._build_limit_slider(main_group, "B上限", self._CH_B, is_a=False)
+        self._build_limit_slider(main_group, tr('pannel.settings_input.strength_max.b'), self._CH_B, is_a=False)
 
         # ── 当前强度 ──
         strength_row = ctk.CTkFrame(main_group, fg_color="transparent")
         strength_row.pack(fill="x", padx=16, pady=(0, 12))
 
         ctk.CTkLabel(
-            strength_row, text="当前强度",
+            strength_row, text=tr('pannel.settings_input.now_strength'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(side="left")
 
         self._a_label = ctk.CTkLabel(
-            strength_row, text="A: 0",
+            strength_row, text=tr('pannel.settings_input.now_strength_for_channel.a', value=0),
             text_color=self._CH_A, font=ctk.CTkFont(family="Cascadia Code", size=15),
         )
         self._a_label.pack(side="left", padx=(8, 16))
 
         self._b_label = ctk.CTkLabel(
-            strength_row, text="B: 0",
+            strength_row, text=tr('pannel.settings_input.now_strength_for_channel.b', value=0),
             text_color=self._CH_B, font=ctk.CTkFont(family="Cascadia Code", size=15),
         )
         self._b_label.pack(side="left")
@@ -91,16 +97,24 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         mode_row.pack(fill="x", padx=16, pady=(0, 12))
 
         ctk.CTkLabel(
-            mode_row, text="模式",
+            mode_row, text=tr('pannel.settings_input.mode.title'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(side="left", padx=(0, 8))
 
-        self._mode_var = StringVar(value="一键开火")
-        self._MODE_TO_LABEL = {"instant": "一键开火", "gradual": "温柔加力", "max": "拉满"}
-        self._LABEL_TO_MODE = {"一键开火": "instant", "温柔加力": "gradual", "拉满": "max"}
+        self._mode_var = StringVar(value=OUPUT_MODE_INTTANT)
+        self._MODE_TO_LABEL = {
+            "instant": OUPUT_MODE_INTTANT,
+            "gradual": OUPUT_MODE_GRADUAL,
+            "max": OUPUT_MODE_MAX
+        }
+        self._LABEL_TO_MODE = {
+            OUPUT_MODE_INTTANT: "instant",
+            OUPUT_MODE_GRADUAL: "gradual",
+            OUPUT_MODE_MAX: "max"
+        }
         self._mode_seg = ctk.CTkSegmentedButton(
             mode_row,
-            values=["一键开火", "温柔加力", "拉满"],
+            values=[OUPUT_MODE_INTTANT, OUPUT_MODE_GRADUAL, OUPUT_MODE_MAX],
             variable=self._mode_var,
             command=self._on_mode_change,
             font=ctk.CTkFont(family="MiSans Normal", size=14),
@@ -118,16 +132,22 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         wf_row.pack(fill="x", padx=16, pady=(0, 12))
 
         ctk.CTkLabel(
-            wf_row, text="波形",
+            wf_row, text=tr('pannel.settings_input.wave_mode.title'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(side="left", padx=(0, 8))
 
-        self._wf_var = StringVar(value="波形库")
-        self._WF_TO_LABEL = {"library": "波形库", "custom": "自定义"}
-        self._WF_LABEL_TO_MODE = {"波形库": "library", "自定义": "custom"}
+        self._wf_var = StringVar(value=WAVE_MODE_LIBRARY)
+        self._WF_TO_LABEL = {
+            "library": WAVE_MODE_LIBRARY,
+            "custom": WAVE_MODE_CUSTOM
+        }
+        self._WF_LABEL_TO_MODE = {
+            WAVE_MODE_LIBRARY: "library",
+            WAVE_MODE_CUSTOM: "custom"
+        }
         self._wf_seg = ctk.CTkSegmentedButton(
             wf_row,
-            values=["波形库", "自定义"],
+            values=[WAVE_MODE_LIBRARY, WAVE_MODE_CUSTOM],
             variable=self._wf_var,
             command=self._on_wf_mode_change,
             font=ctk.CTkFont(family="MiSans Normal", size=14),
@@ -145,7 +165,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         self._custom_wf_frame = ctk.CTkFrame(main_group, fg_color="transparent")
 
         ctk.CTkLabel(
-            self._custom_wf_frame, text="选择波形",
+            self._custom_wf_frame, text=tr('pannel.settings_input.wave_select'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(anchor="w")
 
@@ -173,7 +193,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ch_row.pack(fill="x", padx=16, pady=(0, 12))
 
         ctk.CTkLabel(
-            ch_row, text="通道",
+            ch_row, text=tr('pannel.settings_input.channel'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(side="left", padx=(0, 8))
 
@@ -196,7 +216,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         self._dual_var = BooleanVar(value=False)
         self._dual_switch = ctk.CTkSwitch(
-            ch_row, text="双通道",
+            ch_row, text=tr('pannel.settings_input.channel_all'),
             variable=self._dual_var,
             command=self._on_dual_toggle,
             font=ctk.CTkFont(family="MiSans Normal", size=14),
@@ -210,7 +230,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         self._alternate_var = BooleanVar(value=False)
         self._alternate_switch = ctk.CTkSwitch(
-            ch_row, text="波形交替",
+            ch_row, text=tr('pannel.settings_input.wave_alternate'),
             variable=self._alternate_var,
             command=lambda: self._on_change(),
             font=ctk.CTkFont(family="MiSans Normal", size=14),
@@ -224,7 +244,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         # ── 测试电击按钮 ──
         self._test_btn = ctk.CTkButton(
-            main_group, text="测试电击 (3秒双通道)",
+            main_group, text=tr('pannel.settings_input.output_test'),
             command=self._on_test_shock,
             font=ctk.CTkFont(family="MiSans Normal", size=15, weight="bold"),
             fg_color=self._ACCENT,
@@ -239,14 +259,14 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         chatbox_group = self._make_group()
 
         ctk.CTkLabel(
-            chatbox_group, text="Chatbox 设置",
+            chatbox_group, text=tr('pannel.settings_chatbox.title'),
             text_color=self._TEXT_PRIMARY,
             font=ctk.CTkFont(family="MiSans Normal", size=17, weight="bold"),
         ).pack(anchor="w", padx=16, pady=(12, 8))
 
         # Chatbox 自定义文本
         ctk.CTkLabel(
-            chatbox_group, text="ChatBox 自定义",
+            chatbox_group, text=tr('pannel.settings_chatbox.custom'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(anchor="w", padx=16)
 
@@ -262,7 +282,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         # Chatbox 显示行开关
         ctk.CTkLabel(
-            chatbox_group, text="ChatBox 显示行",
+            chatbox_group, text=tr('pannel.settings_chatbox.row'),
             text_color=self._TEXT_DIM, font=ctk.CTkFont(family="MiSans Normal", size=15),
         ).pack(anchor="w", padx=16)
 
@@ -443,7 +463,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         self._on_change()
 
     def _update_custom_wf_visibility(self):
-        if self._wf_var.get() == "自定义":
+        if self._wf_var.get() == WAVE_MODE_CUSTOM:
             self._custom_wf_frame.pack(fill="x", padx=16, pady=(0, 12))
         else:
             self._custom_wf_frame.pack_forget()
@@ -469,7 +489,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         return self._LABEL_TO_MODE.get(label, "instant")
 
     def set_mode(self, mode: str):
-        label = self._MODE_TO_LABEL.get(mode, "一键开火")
+        label = self._MODE_TO_LABEL.get(mode, OUPUT_MODE_INTTANT)
         self._mode_var.set(label)
 
     def get_waveform_mode(self) -> str:
@@ -477,7 +497,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         return self._WF_LABEL_TO_MODE.get(label, "library")
 
     def set_waveform_mode(self, mode: str):
-        label = self._WF_TO_LABEL.get(mode, "波形库")
+        label = self._WF_TO_LABEL.get(mode, WAVE_MODE_LIBRARY)
         self._wf_var.set(label)
         self._update_custom_wf_visibility()
 
@@ -502,11 +522,11 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         self._alternate_var.set(alternate)
 
     def get_max_mode(self) -> bool:
-        return self._mode_var.get() == "拉满"
+        return self._mode_var.get() == OUPUT_MODE_MAX
 
     def set_max_mode(self, max_mode: bool):
         if max_mode:
-            self._mode_var.set("拉满")
+            self._mode_var.set(OUPUT_MODE_MAX)
 
     def get_custom_waveform(self) -> str:
         return self._custom_wf_var.get()

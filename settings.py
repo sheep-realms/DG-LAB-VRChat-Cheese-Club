@@ -3,6 +3,7 @@ import os
 import tempfile
 
 DEFAULT_SETTINGS = {
+    "language": "zho-Hans",
     "port": 9999,
     "a_limit": 200,
     "b_limit": 200,

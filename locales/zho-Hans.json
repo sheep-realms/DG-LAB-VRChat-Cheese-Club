@@ -1,0 +1,82 @@
+{
+    "zho-Hans": {
+        "connection_status": {
+            "offline": "○ 未连接",
+            "listen": "◌ 等待连接",
+            "online": "● 已配对"
+        },
+        "main_window": {
+            "title": "芝士郊狼",
+            "subtitle": "控制中心"
+        },
+        "pannel": {
+            "connection": {
+                "title": "连接管理",
+                "app_scan": "APP 扫码配对",
+                "ip_list": "IP 列表",
+                "ip_custom": "自定义",
+                "ip_custom_description": "输入手机可访问的 IP",
+                "launch_service": "启动服务",
+                "port": "端口",
+                "qrcode_placeholder": "启动服务后显示",
+                "qrcode_view": "放大二维码",
+                "qrcode_view_close": "点击任意位置关闭",
+                "refresh": "刷新",
+                "stop": "停止",
+                "ip_option": {
+                    "auto": "自动",
+                    "custom": "自定义..."
+                },
+                "service_status": {
+                    "disconnected": "● 未启动",
+                    "connecting": "◌ 启动中...",
+                    "connected": "● 服务运行中",
+                    "paired": "● 已配对"
+                }
+            },
+            "settings_chatbox": {
+                "title": "ChatBox 设置",
+                "custom": "ChatBox 自定义",
+                "row": "ChatBox 显示行"
+            },
+            "settings_input": {
+                "title": "输出设置",
+                "channel": "通道",
+                "channel_all": "双通道",
+                "now_strength": "当前强度",
+                "output_test": "测试输出（3秒双通道）",
+                "wave_alternate": "波形交替",
+                "wave_select": "选择波形",
+                "now_strength_for_channel": {
+                    "a": "A: %{value}",
+                    "b": "B: %{value}"
+                },
+                "output_mode": {
+                    "title": "模式",
+                    "gradual": "温柔加力",
+                    "instant": "一键开火",
+                    "max": "拉满"
+                },
+                "strength_max": {
+                    "a": "A 上限",
+                    "b": "B 上限"
+                },
+                "wave_mode": {
+                    "title": "波形",
+                    "library": "波形库",
+                    "custom": "自定义"
+                }
+            }
+        },
+        "tabview_title": {
+            "main": "主控制",
+            "osc": "参数联动",
+            "monitor": "监控"
+        },
+        "window_title": {
+            "offline": "%{app_name}",
+            "listen": "%{app_name} - 等待连接",
+            "online": "%{app_name} - 已配对"
+        }
+    }
+}
